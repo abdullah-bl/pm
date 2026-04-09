@@ -38,6 +38,7 @@ export function LoginForm({
         return
       }
       toast.success("Login successful")
+      window.location.href = "/"
     } catch (error) {
       console.error(error)
     }

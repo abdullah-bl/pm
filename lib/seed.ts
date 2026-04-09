@@ -1,28 +1,22 @@
-import { db } from "./db"
-import { user } from "./db/schema"
+import { auth } from "./auth"
+
+const ADMIN_PASSWORD = "admin@pm.app" as string
 
 (async () => {
-    // list all users
-    const users = await db.select().from(user)
-    console.log(users)
-
-    if (users.length === 0) {
-        await db.insert(user).values({
-            id: "1",
-            email: "admin@pm.app",
-            name: "Admin User",
-            role: "admin",
-            username: "admin",
-            displayUsername: "Admin",
-            emailVerified: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            banned: false,
-            banReason: null,
-            banExpires: null,
+    try {
+        await auth.api.signUpEmail({
+            body: {
+                email: "admin@pm.app",
+                password: ADMIN_PASSWORD,
+                name: "Admin User",
+            },
         })
         console.log("Admin user created")
-    } else {
-        console.log("Admin user already exists")
+    } catch (error: any) {
+        if (error?.cause?.code === "USER_ALREADY_EXISTS") {
+            console.log("Admin user already exists")
+        } else {
+            console.error("Error creating admin:", error)
+        }
     }
 })().catch(console.error)

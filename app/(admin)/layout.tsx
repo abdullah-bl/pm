@@ -13,6 +13,7 @@ export default async function AdminLayout({
   });
 
   if (!session || session.user.role !== "admin") {
+    console.log("session", session)
     notFound();
   }
 
