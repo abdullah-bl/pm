@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getDashboardStats } from "@/lib/actions/users";
+import { getDashboardStatsAction } from "@/lib/actions/users";
 import {
   RiUserLine,
   RiShieldKeyholeLine,
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   } | null>(null);
 
   useEffect(() => {
-    getDashboardStats().then((res) => {
+    getDashboardStatsAction({}).then((res) => {
       if (res?.data) setStats(res.data);
     });
   }, []);

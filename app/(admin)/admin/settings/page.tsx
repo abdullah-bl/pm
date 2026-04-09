@@ -6,7 +6,7 @@ import {
   backupDatabase,
   restoreDatabase,
   resetDatabase,
-  getDbStats,
+  getDbStatsAction,
   listBackups,
   rollbackToBackup,
 } from "@/lib/actions/settings";
@@ -51,7 +51,7 @@ export default function SettingsPage() {
 
   const loadStats = async () => {
     setLoading(true);
-    const [statsRes, backupsRes] = await Promise.all([getDbStats(), listBackups()]);
+    const [statsRes, backupsRes] = await Promise.all([getDbStatsAction({}), listBackups({})]);
     if (statsRes?.data) setStats(statsRes.data);
     if (backupsRes?.data) setBackups(backupsRes.data);
     setLoading(false);
@@ -62,14 +62,9 @@ export default function SettingsPage() {
   }, []);
 
   const handleBackup = async () => {
-    const res = await backupDatabase();
+    const res = await backupDatabase({});
     if (res?.data?.filename) {
-      // Also trigger download
-      const backupRes = await fetch(`/api/backups/${res.data.filename}`);
-      // Fallback: read from backups dir via a download approach
-      // Instead, let's just download the current snapshot directly
-      const allData = await backupDatabase();
-      toast.success("Backup created");
+      toast.success("Backup created: " + res.data.filename);
       loadStats();
     } else {
       toast.error("Backup failed");
@@ -97,7 +92,7 @@ export default function SettingsPage() {
   };
 
   const handleReset = async () => {
-    const res = await resetDatabase();
+    const res = await resetDatabase({});
     if (res?.data?.success) {
       toast.success("Database reset (auto-backup created)");
       setResetConfirm(false);

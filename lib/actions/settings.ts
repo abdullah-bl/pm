@@ -2,11 +2,15 @@
 
 import { adminOnlyAction } from "@/lib/safe-action";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { user, session, account, verification } from "@/lib/db/schema";
-import { eq, count, not } from "drizzle-orm";
 import { promises as fs } from "fs";
 import path from "path";
+import {
+  getDbStats,
+  getAllTableData,
+  clearAllTables,
+  clearNonAdminTables,
+  insertAllData,
+} from "@/lib/data";
 
 const BACKUPS_DIR = path.join(process.cwd(), "backups");
 
@@ -16,17 +20,9 @@ async function ensureBackupsDir() {
 
 async function createBackupFile(type: string) {
   await ensureBackupsDir();
-  const [users, sessions, accounts, verifications] = await Promise.all([
-    db.select().from(user),
-    db.select().from(session),
-    db.select().from(account),
-    db.select().from(verification),
-  ]);
-  const data = {
-    users,
-    sessions,
-    accounts,
-    verifications,
+  const data = await getAllTableData();
+  const backup = {
+    ...data,
     exportedAt: new Date().toISOString(),
     type,
   };
@@ -34,16 +30,21 @@ async function createBackupFile(type: string) {
   const filename = `backup-${ts}.json`;
   await fs.writeFile(
     path.join(BACKUPS_DIR, filename),
-    JSON.stringify(data, null, 2)
+    JSON.stringify(backup, null, 2)
   );
   return filename;
 }
 
 export const backupDatabase = adminOnlyAction
-  .schema(z.void())
+  .schema(z.object({}))
   .action(async () => {
-    const filename = await createBackupFile("manual");
-    return { filename };
+    try {
+      const filename = await createBackupFile("manual");
+      return { filename };
+    } catch (error) {
+      console.error("Backup error:", error);
+      throw new Error("Backup failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
   });
 
 export const restoreDatabase = adminOnlyAction
@@ -58,104 +59,96 @@ export const restoreDatabase = adminOnlyAction
     })
   )
   .action(async ({ parsedInput }) => {
-    // Auto-backup before restore
-    await createBackupFile("auto-pre-restore");
-
-    const { data } = parsedInput;
-    await db.delete(verification);
-    await db.delete(session);
-    await db.delete(account);
-    await db.delete(user);
-
-    if (data.users?.length) for (const u of data.users) await db.insert(user).values(u);
-    if (data.accounts?.length) for (const a of data.accounts) await db.insert(account).values(a);
-    if (data.sessions?.length) for (const s of data.sessions) await db.insert(session).values(s);
-    if (data.verifications?.length) for (const v of data.verifications) await db.insert(verification).values(v);
-
-    return { success: true };
+    try {
+      await createBackupFile("auto-pre-restore");
+      await clearAllTables();
+      await insertAllData(parsedInput.data);
+      return { success: true };
+    } catch (error) {
+      console.error("Restore error:", error);
+      throw new Error("Restore failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
   });
 
 export const resetDatabase = adminOnlyAction
-  .schema(z.void())
+  .schema(z.object({}))
   .action(async () => {
-    // Auto-backup before reset
-    await createBackupFile("auto-pre-reset");
-
-    await db.delete(verification);
-    await db.delete(session);
-    await db.delete(account);
-    await db.delete(user).where(not(eq(user.role, "admin")));
-
-    return { success: true };
+    try {
+      await createBackupFile("auto-pre-reset");
+      await clearNonAdminTables();
+      return { success: true };
+    } catch (error) {
+      console.error("Reset error:", error);
+      throw new Error("Reset failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
   });
 
-export const getDbStats = adminOnlyAction
-  .schema(z.void())
+export const getDbStatsAction = adminOnlyAction
+  .schema(z.object({}))
   .action(async () => {
-    const [userCount, sessionCount, accountCount, verificationCount] =
-      await Promise.all([
-        db.select({ count: count() }).from(user),
-        db.select({ count: count() }).from(session),
-        db.select({ count: count() }).from(account),
-        db.select({ count: count() }).from(verification),
-      ]);
-
-    return {
-      users: userCount[0].count,
-      sessions: sessionCount[0].count,
-      accounts: accountCount[0].count,
-      verifications: verificationCount[0].count,
-    };
+    try {
+      return getDbStats();
+    } catch (error) {
+      console.error("Stats error:", error);
+      throw new Error("Failed to get stats");
+    }
   });
 
 export const listBackups = adminOnlyAction
-  .schema(z.void())
+  .schema(z.object({}))
   .action(async () => {
-    await ensureBackupsDir();
-    const files = await fs.readdir(BACKUPS_DIR);
-    const jsonFiles = files.filter((f) => f.endsWith(".json")).sort().reverse();
+    try {
+      await ensureBackupsDir();
+      const files = await fs.readdir(BACKUPS_DIR);
+      const jsonFiles = files.filter((f) => f.endsWith(".json")).sort().reverse();
 
-    const backups = await Promise.all(
-      jsonFiles.map(async (f) => {
-        const stat = await fs.stat(path.join(BACKUPS_DIR, f));
-        // Parse type from file content
-        const content = await fs.readFile(path.join(BACKUPS_DIR, f), "utf-8");
-        const parsed = JSON.parse(content);
-        return {
-          filename: f,
-          timestamp: parsed.exportedAt || stat.mtime.toISOString(),
-          type: parsed.type || "manual",
-          size: stat.size,
-        };
-      })
-    );
+      const backups = await Promise.all(
+        jsonFiles.slice(0, 50).map(async (f) => {
+          const filePath = path.join(BACKUPS_DIR, f);
+          const [stat, content] = await Promise.all([
+            fs.stat(filePath),
+            fs.readFile(filePath, "utf-8"),
+          ]);
+          let parsed: any = {};
+          try {
+            parsed = JSON.parse(content);
+          } catch {}
+          return {
+            filename: f,
+            timestamp: parsed.exportedAt || stat.mtime.toISOString(),
+            type: parsed.type || "manual",
+            size: stat.size,
+          };
+        })
+      );
 
-    return backups;
+      return backups;
+    } catch (error) {
+      console.error("List backups error:", error);
+      return [];
+    }
   });
 
 export const rollbackToBackup = adminOnlyAction
-  .schema(z.object({ filename: z.string() }))
+  .schema(z.object({ filename: z.string().min(1) }))
   .action(async ({ parsedInput }) => {
-    // Auto-backup current state before rollback
-    await createBackupFile("auto-pre-rollback");
+    try {
+      // Auto-backup current state
+      await createBackupFile("auto-pre-rollback");
 
-    // Read the target backup
-    const filePath = path.join(BACKUPS_DIR, parsedInput.filename);
-    const content = await fs.readFile(filePath, "utf-8");
-    const data = JSON.parse(content);
+      // Read target backup
+      const filePath = path.join(BACKUPS_DIR, parsedInput.filename);
+      const content = await fs.readFile(filePath, "utf-8");
+      const data = JSON.parse(content);
 
-    if (!data.users) throw new Error("Invalid backup file");
+      if (!data.users) throw new Error("Invalid backup file");
 
-    // Restore
-    await db.delete(verification);
-    await db.delete(session);
-    await db.delete(account);
-    await db.delete(user);
+      await clearAllTables();
+      await insertAllData(data);
 
-    if (data.users?.length) for (const u of data.users) await db.insert(user).values(u);
-    if (data.accounts?.length) for (const a of data.accounts) await db.insert(account).values(a);
-    if (data.sessions?.length) for (const s of data.sessions) await db.insert(session).values(s);
-    if (data.verifications?.length) for (const v of data.verifications) await db.insert(verification).values(v);
-
-    return { success: true };
+      return { success: true };
+    } catch (error) {
+      console.error("Rollback error:", error);
+      throw new Error("Rollback failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
   });
