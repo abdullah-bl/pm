@@ -1,19 +1,23 @@
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { UserShell } from "@/components/user-shell";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
-    const session = await auth.api.getSession({
-        headers: await headers()
-    })
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-    if (!session) {
-        return redirect("/sign-in")
-    }
+  if (!session) {
+    return redirect("/sign-in");
+  }
 
-    return (
-        <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
-            {children}
-        </div>
-    )
+  return (
+    <UserShell
+      userName={session.user.name}
+      userEmail={session.user.email}
+    >
+      {children}
+    </UserShell>
+  );
 }

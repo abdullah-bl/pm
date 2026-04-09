@@ -54,12 +54,12 @@ export default function ProjectsPage() {
     if (!form.name.trim()) return;
     const res = await newProject({ name: form.name, description: form.description || undefined });
     if (res?.data) {
-      toast.success("Project created");
+      toast.success("Collection created");
       setShowModal(false);
       setForm({ name: "", description: "" });
       load();
     } else {
-      toast.error("Failed to create project");
+      toast.error("Failed to create collection");
     }
   };
 
@@ -70,18 +70,18 @@ export default function ProjectsPage() {
       toast.success(`Project ${newStatus}`);
       load();
     } else {
-      toast.error("Failed to update project");
+      toast.error("Failed to update collection");
     }
   };
 
   const handleDelete = async (id: string) => {
     const res = await removeProject({ id });
     if (res?.data) {
-      toast.success("Project deleted");
+      toast.success("Collection deleted");
       setDeleteTarget(null);
       load();
     } else {
-      toast.error("Failed to delete project");
+      toast.error("Failed to delete collection");
     }
   };
 
@@ -90,11 +90,11 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-          <p className="text-muted-foreground">Manage your projects and tasks.</p>
+          <p className="text-muted-foreground">Manage your collections and tasks.</p>
         </div>
         <Button className="gap-2" onClick={() => setShowModal(true)}>
           <RiAddLine className="size-4" />
-          New Project
+          New Collection
         </Button>
       </div>
 
@@ -102,7 +102,7 @@ export default function ProjectsPage() {
       <div className="relative max-w-sm">
         <RiSearchLine className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search projects..."
+          placeholder="Search collections..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -119,7 +119,7 @@ export default function ProjectsPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           <RiFolderLine className="mx-auto size-8 mb-2 opacity-50" />
-          <p className="text-sm">{search ? "No projects match your search." : "No projects yet. Create one above."}</p>
+          <p className="text-sm">{search ? "No collections match your search." : "No collections yet. Create one above."}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -127,7 +127,7 @@ export default function ProjectsPage() {
             <div key={p.id} className="rounded-lg border bg-card p-5 space-y-3 hover:border-primary/30 transition-colors">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/admin/projects/${p.id}`} className="font-semibold hover:underline truncate block">
+                  <Link href={`/admin/collections/${p.id}`} className="font-semibold hover:underline truncate block">
                     {p.name}
                   </Link>
                   {p.description && (
@@ -143,7 +143,7 @@ export default function ProjectsPage() {
                 <span>{new Date(p.createdAt).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center gap-2 pt-1">
-                <Link href={`/admin/projects/${p.id}`} className="flex-1">
+                <Link href={`/admin/collections/${p.id}`} className="flex-1">
                   <Button variant="outline" size="sm" className="w-full gap-1">
                     View <RiArrowRightLine className="size-3" />
                   </Button>
@@ -170,13 +170,13 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* New Project Modal */}
+      {/* New Collection Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowModal(false)} />
           <div className="relative z-50 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">New Project</h2>
+              <h2 className="text-lg font-semibold">New Collection</h2>
               <Button variant="ghost" size="icon" onClick={() => setShowModal(false)}>
                 <RiCloseLine className="size-4" />
               </Button>
@@ -185,7 +185,7 @@ export default function ProjectsPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Name</label>
                 <Input
-                  placeholder="Project name"
+                  placeholder="Collection name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
@@ -214,7 +214,7 @@ export default function ProjectsPage() {
           <div className="fixed inset-0 bg-black/50" onClick={() => setDeleteTarget(null)} />
           <div className="relative z-50 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Delete Project</h2>
+              <h2 className="text-lg font-semibold">Delete Collection</h2>
               <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(null)}>
                 <RiCloseLine className="size-4" />
               </Button>

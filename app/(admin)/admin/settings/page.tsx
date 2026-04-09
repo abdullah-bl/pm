@@ -64,7 +64,18 @@ export default function SettingsPage() {
   const handleBackup = async () => {
     const res = await backupDatabase({});
     if (res?.data?.filename) {
-      toast.success("Backup created: " + res.data.filename);
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Backup created</span>
+          <a
+            href={`/api/backup-download/${res.data.filename}`}
+            download
+            className="inline-flex items-center gap-1 text-primary underline text-xs"
+          >
+            <RiDownloadLine className="size-3" /> Download
+          </a>
+        </div>
+      );
       loadStats();
     } else {
       toast.error("Backup failed");
@@ -118,9 +129,10 @@ export default function SettingsPage() {
     { key: "sessions", label: "Sessions" },
     { key: "accounts", label: "Accounts" },
     { key: "verifications", label: "Verifications" },
-    { key: "projects", label: "Projects" },
+    { key: "projects", label: "Collections" },
     { key: "tasks", label: "Tasks" },
     { key: "comments", label: "Comments" },
+    { key: "members", label: "Members" },
   ];
 
   return (
@@ -135,7 +147,7 @@ export default function SettingsPage() {
       {/* DB Stats */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Database Stats</h2>
-        <div className="grid gap-4 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="grid gap-4 sm:grid-cols-4 lg:grid-cols-8">
           {statEntries.map((s) => (
             <div key={s.key} className="rounded-lg border bg-card p-4 space-y-1">
               <p className="text-sm text-muted-foreground">{s.label}</p>
@@ -187,15 +199,24 @@ export default function SettingsPage() {
                       {typeLabels[b.type] || b.type} · {formatSize(b.size)}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setRollbackTarget(b)}
-                  >
-                    <RiArrowGoBackLine className="size-3.5" />
-                    Rollback
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`/api/backup-download/${b.filename}`}
+                      download
+                      className="inline-flex items-center justify-center rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
+                    >
+                      <RiDownloadLine className="size-3.5" />
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setRollbackTarget(b)}
+                    >
+                      <RiArrowGoBackLine className="size-3.5" />
+                      Rollback
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

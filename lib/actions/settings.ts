@@ -58,6 +58,7 @@ export const restoreDatabase = adminOnlyAction
         projects: z.array(z.any()).optional(),
         tasks: z.array(z.any()).optional(),
         comments: z.array(z.any()).optional(),
+        members: z.array(z.any()).optional(),
       }),
     })
   )

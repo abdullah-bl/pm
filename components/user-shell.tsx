@@ -6,38 +6,41 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth-client";
 import {
-  RiDashboardLine,
-  RiUserLine,
-  RiSettings3Line,
+  RiFolderLine,
   RiLogoutBoxLine,
   RiMenuLine,
   RiCloseLine,
-  RiFolderLine,
+  RiHomeLine,
 } from "@remixicon/react";
 import { useState } from "react";
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: RiDashboardLine },
-  { href: "/admin/collections", label: "Collections", icon: RiFolderLine },
-  { href: "/admin/users", label: "Users", icon: RiUserLine },
-  { href: "/admin/settings", label: "Settings", icon: RiSettings3Line },
-];
-
-export function AdminSidebar() {
+export function UserShell({
+  children,
+  userName,
+  userEmail,
+}: {
+  children: React.ReactNode;
+  userName: string;
+  userEmail: string;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
+
+  const navItems = [
+    { href: "/", label: "My Collections", icon: RiHomeLine },
+  ];
 
   const sidebar = (
     <div className="flex h-full flex-col justify-between py-4">
       <div className="space-y-1 px-3">
         <div className="mb-6 px-3">
-          <h2 className="text-lg font-semibold tracking-tight">PM Admin</h2>
-          <p className="text-xs text-muted-foreground">Project Management</p>
+          <h2 className="text-lg font-semibold tracking-tight">PM</h2>
+          <p className="text-xs text-muted-foreground">Project Manager</p>
         </div>
         <nav className="space-y-1">
           {navItems.map((item) => (
@@ -58,21 +61,25 @@ export function AdminSidebar() {
           ))}
         </nav>
       </div>
-      <div className="px-3">
+      <div className="px-3 space-y-3">
+        <div className="px-3 text-sm">
+          <p className="font-medium truncate">{userName}</p>
+          <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+        </div>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground"
           onClick={() => signOut()}
         >
           <RiLogoutBoxLine className="size-4" />
-          Logout
+          Sign Out
         </Button>
       </div>
     </div>
   );
 
   return (
-    <>
+    <div className="flex min-h-svh">
       {/* Mobile toggle */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center gap-2 border-b bg-background px-4 py-3">
         <Button
@@ -86,7 +93,7 @@ export function AdminSidebar() {
             <RiMenuLine className="size-5" />
           )}
         </Button>
-        <span className="font-semibold">PM Admin</span>
+        <span className="font-semibold">PM</span>
       </div>
 
       {/* Mobile overlay */}
@@ -106,6 +113,10 @@ export function AdminSidebar() {
       >
         {sidebar}
       </aside>
-    </>
+
+      <main className="flex-1 overflow-auto pt-14 md:pt-0">
+        <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
+      </main>
+    </div>
   );
 }

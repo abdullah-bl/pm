@@ -9,7 +9,6 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import {
   listUsersPaginated,
-  setRoleByEmail,
   updateUserData,
   deleteUserData,
   banUserData,
@@ -41,25 +40,34 @@ export const createUser = adminOnlyAction
     })
   )
   .action(async ({ parsedInput }) => {
-    const res = await auth.api.signUpEmail({
-      body: {
-        email: parsedInput.email,
-        name: parsedInput.name,
-        username: parsedInput.username,
-        password: parsedInput.password,
-      },
-      headers: await headers(),
-    });
+    try {
+      const res = await auth.api.createUser({
+        body: {
+          email: parsedInput.email,
+          name: parsedInput.name,
+          password: parsedInput.password,
+          role: parsedInput.role,
+        },
+        headers: await headers(),
+      });
 
-    if (!res) {
-      return { success: false, error: "Failed to create user" };
+      if (!res) {
+        return { success: false, error: "Failed to create user" };
+      }
+
+      // Set username separately since admin.createUser doesn't support it directly
+      if (parsedInput.username && res.user?.id) {
+        await db
+          .update(user)
+          .set({ username: parsedInput.username, displayUsername: parsedInput.username })
+          .where(eq(user.id, res.user.id));
+      }
+
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create user";
+      return { success: false, error: message };
     }
-
-    if (parsedInput.role) {
-      await setRoleByEmail(parsedInput.email, parsedInput.role);
-    }
-
-    return { success: true };
   });
 
 export const updateUser = adminOnlyAction

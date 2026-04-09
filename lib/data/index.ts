@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { user, session, account, verification, project, task, comment } from "@/lib/db/schema";
+import { user, session, account, verification, project, task, comment, collectionMember } from "@/lib/db/schema";
 import { eq, count, not, ilike, or, and, desc, sql as sqlOp } from "drizzle-orm";
 
 export async function getUserCount() {
@@ -38,23 +38,25 @@ export async function getCommentCount() {
 }
 
 export async function getDashboardStats() {
-  const [userCount, sessionCount, projectCount, taskCount] = await Promise.all([
+  const [userCount, sessionCount, projectCount, taskCount, memberCount] = await Promise.all([
     getUserCount(),
     getSessionCount(),
     getProjectCount(),
     getTaskCount(),
+    getCollectionMemberCount(),
   ]);
 
   return {
     totalUsers: userCount,
     activeSessions: sessionCount,
-    projects: projectCount,
+    collections: projectCount,
     tasks: taskCount,
+    members: memberCount,
   };
 }
 
 export async function getDbStats() {
-  const [users, sessions, accounts, verifications, projects, tasks, comments] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments, members] = await Promise.all([
     getUserCount(),
     getSessionCount(),
     getAccountCount(),
@@ -62,13 +64,14 @@ export async function getDbStats() {
     getProjectCount(),
     getTaskCount(),
     getCommentCount(),
+    getCollectionMemberCount(),
   ]);
 
-  return { users, sessions, accounts, verifications, projects, tasks, comments };
+  return { users, sessions, accounts, verifications, projects, tasks, comments, members };
 }
 
 export async function getAllTableData() {
-  const [users, sessions, accounts, verifications, projects, tasks, comments] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments, members] = await Promise.all([
     db.select().from(user),
     db.select().from(session),
     db.select().from(account),
@@ -76,8 +79,9 @@ export async function getAllTableData() {
     db.select().from(project),
     db.select().from(task),
     db.select().from(comment),
+    db.select().from(collectionMember),
   ]);
-  return { users, sessions, accounts, verifications, projects, tasks, comments };
+  return { users, sessions, accounts, verifications, projects, tasks, comments, members };
 }
 
 export async function listUsersPaginated(opts: {
@@ -127,6 +131,7 @@ export async function listUsersPaginated(opts: {
 export async function clearAllTables() {
   await db.delete(comment);
   await db.delete(task);
+  await db.delete(collectionMember);
   await db.delete(project);
   await db.delete(verification);
   await db.delete(session);
@@ -137,6 +142,7 @@ export async function clearAllTables() {
 export async function clearNonAdminTables() {
   await db.delete(comment);
   await db.delete(task);
+  await db.delete(collectionMember);
   await db.delete(project);
   await db.delete(verification);
   await db.delete(session);
@@ -152,6 +158,7 @@ export async function insertAllData(data: {
   projects?: any[];
   tasks?: any[];
   comments?: any[];
+  members?: any[];
 }) {
   if (data.users?.length) {
     for (const u of data.users) {
@@ -161,6 +168,11 @@ export async function insertAllData(data: {
   if (data.projects?.length) {
     for (const p of data.projects) {
       try { await db.insert(project).values(p); } catch {}
+    }
+  }
+  if (data.members?.length) {
+    for (const m of data.members) {
+      try { await db.insert(collectionMember).values(m); } catch {}
     }
   }
   if (data.tasks?.length) {
@@ -378,4 +390,206 @@ export async function createComment(data: {
 
 export async function deleteComment(id: string) {
   await db.delete(comment).where(eq(comment.id, id));
+}
+
+// --- Collection member / access queries ---
+
+export async function getCollectionsForUser(userId: string) {
+  // Collections the user owns
+  const owned = await db
+    .select({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      createdBy: project.createdBy,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      role: sqlOp<string>`'admin'`.as("role"),
+      taskCount: sqlOp<number>`0`.as("taskCount"),
+    })
+    .from(project)
+    .where(eq(project.createdBy, userId));
+
+  // Get task counts for owned
+  for (const col of owned) {
+    const [row] = await db
+      .select({ count: count() })
+      .from(task)
+      .where(eq(task.projectId, col.id));
+    col.taskCount = row.count;
+  }
+
+  // Collections the user is a member of
+  const memberOf = await db
+    .select({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      createdBy: project.createdBy,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      role: collectionMember.role,
+    })
+    .from(collectionMember)
+    .innerJoin(project, eq(collectionMember.collectionId, project.id))
+    .where(
+      and(
+        eq(collectionMember.userId, userId),
+        eq(collectionMember.status, "accepted"),
+        not(eq(project.createdBy, userId)),
+      )
+    );
+
+  // Get task counts for member collections
+  for (const col of memberOf) {
+    const [row] = await db
+      .select({ count: count() })
+      .from(task)
+      .where(eq(task.projectId, col.id));
+    (col as any).taskCount = row.count;
+  }
+
+  return {
+    owned: owned.map((c) => ({ ...c, role: "admin" as const })),
+    shared: memberOf.map((c) => ({ ...c, taskCount: (c as any).taskCount || 0 })),
+  };
+}
+
+export async function getCollectionWithAccess(collectionId: string, userId: string) {
+  // Check if user is the owner
+  const [proj] = await db
+    .select()
+    .from(project)
+    .where(and(eq(project.id, collectionId), eq(project.createdBy, userId)));
+
+  if (proj) {
+    return { collection: proj, role: "admin" as const };
+  }
+
+  // Check if user is a member
+  const [membership] = await db
+    .select({ role: collectionMember.role, status: collectionMember.status })
+    .from(collectionMember)
+    .where(
+      and(
+        eq(collectionMember.collectionId, collectionId),
+        eq(collectionMember.userId, userId),
+        eq(collectionMember.status, "accepted"),
+      )
+    );
+
+  if (!membership) {
+    // Admin users can always access
+    const [u] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId));
+    if (u?.role === "admin") {
+      const [col] = await db.select().from(project).where(eq(project.id, collectionId));
+      return col ? { collection: col, role: "admin" as const } : null;
+    }
+    return null;
+  }
+
+  const [col] = await db.select().from(project).where(eq(project.id, collectionId));
+  return col ? { collection: col, role: membership.role as "admin" | "write" | "read" } : null;
+}
+
+export async function checkCollectionAccess(
+  collectionId: string,
+  userId: string,
+  requiredRole?: "admin" | "write" | "read"
+) {
+  const access = await getCollectionWithAccess(collectionId, userId);
+  if (!access) return null;
+
+  if (!requiredRole) return access.role;
+
+  const roleHierarchy = { read: 0, write: 1, admin: 2 };
+  if (roleHierarchy[access.role] >= roleHierarchy[requiredRole]) {
+    return access.role;
+  }
+  return null;
+}
+
+export async function addCollectionMember(data: {
+  collectionId: string;
+  userId: string;
+  role?: "admin" | "write" | "read";
+  status?: "pending" | "accepted";
+}) {
+  const result = await db
+    .insert(collectionMember)
+    .values({
+      collectionId: data.collectionId,
+      userId: data.userId,
+      role: data.role || "write",
+      status: data.status || "accepted",
+      acceptedAt: data.status === "accepted" ? new Date() : null,
+    })
+    .returning();
+  return result[0];
+}
+
+export async function updateCollectionMember(
+  collectionId: string,
+  userId: string,
+  data: { role?: "admin" | "write" | "read"; status?: "pending" | "accepted" }
+) {
+  const updates: any = { ...data };
+  if (data.status === "accepted") {
+    updates.acceptedAt = new Date();
+  }
+  await db
+    .update(collectionMember)
+    .set(updates)
+    .where(
+      and(
+        eq(collectionMember.collectionId, collectionId),
+        eq(collectionMember.userId, userId),
+      )
+    );
+}
+
+export async function removeCollectionMember(collectionId: string, userId: string) {
+  await db
+    .delete(collectionMember)
+    .where(
+      and(
+        eq(collectionMember.collectionId, collectionId),
+        eq(collectionMember.userId, userId),
+      )
+    );
+}
+
+export async function getCollectionMembers(collectionId: string) {
+  return db
+    .select({
+      id: collectionMember.id,
+      collectionId: collectionMember.collectionId,
+      userId: collectionMember.userId,
+      role: collectionMember.role,
+      status: collectionMember.status,
+      invitedAt: collectionMember.invitedAt,
+      acceptedAt: collectionMember.acceptedAt,
+      userName: user.name,
+      userEmail: user.email,
+      userImage: user.image,
+    })
+    .from(collectionMember)
+    .innerJoin(user, eq(collectionMember.userId, user.id))
+    .where(eq(collectionMember.collectionId, collectionId));
+}
+
+export async function getMemberCount(collectionId: string) {
+  const [row] = await db
+    .select({ count: count() })
+    .from(collectionMember)
+    .where(eq(collectionMember.collectionId, collectionId));
+  return row.count;
+}
+
+// Updated stats to include collection members
+export async function getCollectionMemberCount() {
+  const result = await db.select({ count: count() }).from(collectionMember);
+  return result[0].count;
 }

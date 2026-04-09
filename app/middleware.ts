@@ -32,6 +32,8 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  // Admin users on main app are fine - they can use both
+
   return NextResponse.next();
 }
 

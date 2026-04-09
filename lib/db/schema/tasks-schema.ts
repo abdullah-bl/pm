@@ -86,10 +86,51 @@ export const comment = sqliteTable(
   (table) => [index("comment_taskId_idx").on(table.taskId)],
 );
 
+export const collectionMember = sqliteTable(
+  "collection_member",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["admin", "write", "read"] })
+      .default("write")
+      .notNull(),
+    status: text("status", { enum: ["pending", "accepted"] })
+      .default("accepted")
+      .notNull(),
+    invitedAt: integer("invited_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("collection_member_collectionId_idx").on(table.collectionId),
+    index("collection_member_userId_idx").on(table.userId),
+  ],
+);
+
 export const projectRelations = relations(project, ({ many, one }) => ({
   tasks: many(task),
   creator: one(user, {
     fields: [project.createdBy],
+    references: [user.id],
+  }),
+  members: many(collectionMember),
+}));
+
+export const collectionMemberRelations = relations(collectionMember, ({ one }) => ({
+  collection: one(project, {
+    fields: [collectionMember.collectionId],
+    references: [project.id],
+  }),
+  user: one(user, {
+    fields: [collectionMember.userId],
     references: [user.id],
   }),
 }));

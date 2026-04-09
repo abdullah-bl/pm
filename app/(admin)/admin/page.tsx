@@ -18,7 +18,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<{
     totalUsers: number;
     activeSessions: number;
-    projects: number;
+    collections: number;
     tasks: number;
   } | null>(null);
 
@@ -42,10 +42,10 @@ export default function AdminDashboard() {
       description: "Current sessions",
     },
     {
-      label: "Projects",
-      value: stats?.projects ?? "—",
+      label: "Collections",
+      value: stats?.collections ?? "—",
       icon: RiFolderLine,
-      description: "Active projects",
+      description: "Active collections",
     },
     {
       label: "Tasks",

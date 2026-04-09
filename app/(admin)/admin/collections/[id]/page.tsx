@@ -212,7 +212,7 @@ export default function ProjectDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/admin/projects")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/admin/collections")}>
           <RiArrowLeftLine className="size-4" />
         </Button>
         <div className="flex-1">
