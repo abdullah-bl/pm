@@ -19,6 +19,7 @@ export default function AdminDashboard() {
     totalUsers: number;
     activeSessions: number;
     projects: number;
+    tasks: number;
   } | null>(null);
 
   useEffect(() => {
@@ -44,7 +45,13 @@ export default function AdminDashboard() {
       label: "Projects",
       value: stats?.projects ?? "—",
       icon: RiFolderLine,
-      description: "Coming soon",
+      description: "Active projects",
+    },
+    {
+      label: "Tasks",
+      value: stats?.tasks ?? "—",
+      icon: RiAddLine,
+      description: "Total tasks",
     },
   ];
 
@@ -58,7 +65,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
           <div
             key={card.label}

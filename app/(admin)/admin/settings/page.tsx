@@ -118,6 +118,9 @@ export default function SettingsPage() {
     { key: "sessions", label: "Sessions" },
     { key: "accounts", label: "Accounts" },
     { key: "verifications", label: "Verifications" },
+    { key: "projects", label: "Projects" },
+    { key: "tasks", label: "Tasks" },
+    { key: "comments", label: "Comments" },
   ];
 
   return (
@@ -132,7 +135,7 @@ export default function SettingsPage() {
       {/* DB Stats */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Database Stats</h2>
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-4 lg:grid-cols-7">
           {statEntries.map((s) => (
             <div key={s.key} className="rounded-lg border bg-card p-4 space-y-1">
               <p className="text-sm text-muted-foreground">{s.label}</p>

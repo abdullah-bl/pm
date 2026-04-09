@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { user, session, account, verification } from "@/lib/db/schema";
-import { eq, count, not, ilike, or, and } from "drizzle-orm";
+import { user, session, account, verification, project, task, comment } from "@/lib/db/schema";
+import { eq, count, not, ilike, or, and, desc, sql as sqlOp } from "drizzle-orm";
 
 export async function getUserCount() {
   const result = await db.select({ count: count() }).from(user);
@@ -22,38 +22,62 @@ export async function getVerificationCount() {
   return result[0].count;
 }
 
+export async function getProjectCount() {
+  const result = await db.select({ count: count() }).from(project);
+  return result[0].count;
+}
+
+export async function getTaskCount() {
+  const result = await db.select({ count: count() }).from(task);
+  return result[0].count;
+}
+
+export async function getCommentCount() {
+  const result = await db.select({ count: count() }).from(comment);
+  return result[0].count;
+}
+
 export async function getDashboardStats() {
-  const [userCount, sessionCount] = await Promise.all([
+  const [userCount, sessionCount, projectCount, taskCount] = await Promise.all([
     getUserCount(),
     getSessionCount(),
+    getProjectCount(),
+    getTaskCount(),
   ]);
 
   return {
     totalUsers: userCount,
     activeSessions: sessionCount,
-    projects: 0,
+    projects: projectCount,
+    tasks: taskCount,
   };
 }
 
 export async function getDbStats() {
-  const [users, sessions, accounts, verifications] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments] = await Promise.all([
     getUserCount(),
     getSessionCount(),
     getAccountCount(),
     getVerificationCount(),
+    getProjectCount(),
+    getTaskCount(),
+    getCommentCount(),
   ]);
 
-  return { users, sessions, accounts, verifications };
+  return { users, sessions, accounts, verifications, projects, tasks, comments };
 }
 
 export async function getAllTableData() {
-  const [users, sessions, accounts, verifications] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments] = await Promise.all([
     db.select().from(user),
     db.select().from(session),
     db.select().from(account),
     db.select().from(verification),
+    db.select().from(project),
+    db.select().from(task),
+    db.select().from(comment),
   ]);
-  return { users, sessions, accounts, verifications };
+  return { users, sessions, accounts, verifications, projects, tasks, comments };
 }
 
 export async function listUsersPaginated(opts: {
@@ -101,6 +125,9 @@ export async function listUsersPaginated(opts: {
 }
 
 export async function clearAllTables() {
+  await db.delete(comment);
+  await db.delete(task);
+  await db.delete(project);
   await db.delete(verification);
   await db.delete(session);
   await db.delete(account);
@@ -108,6 +135,9 @@ export async function clearAllTables() {
 }
 
 export async function clearNonAdminTables() {
+  await db.delete(comment);
+  await db.delete(task);
+  await db.delete(project);
   await db.delete(verification);
   await db.delete(session);
   await db.delete(account);
@@ -119,35 +149,43 @@ export async function insertAllData(data: {
   sessions?: any[];
   accounts?: any[];
   verifications?: any[];
+  projects?: any[];
+  tasks?: any[];
+  comments?: any[];
 }) {
   if (data.users?.length) {
     for (const u of data.users) {
-      try {
-        await db.insert(user).values(u);
-      } catch (e) {
-        // Skip duplicates
-      }
+      try { await db.insert(user).values(u); } catch {}
+    }
+  }
+  if (data.projects?.length) {
+    for (const p of data.projects) {
+      try { await db.insert(project).values(p); } catch {}
+    }
+  }
+  if (data.tasks?.length) {
+    for (const t of data.tasks) {
+      try { await db.insert(task).values(t); } catch {}
+    }
+  }
+  if (data.comments?.length) {
+    for (const c of data.comments) {
+      try { await db.insert(comment).values(c); } catch {}
     }
   }
   if (data.accounts?.length) {
     for (const a of data.accounts) {
-      try {
-        await db.insert(account).values(a);
-      } catch (e) {}
+      try { await db.insert(account).values(a); } catch {}
     }
   }
   if (data.sessions?.length) {
     for (const s of data.sessions) {
-      try {
-        await db.insert(session).values(s);
-      } catch (e) {}
+      try { await db.insert(session).values(s); } catch {}
     }
   }
   if (data.verifications?.length) {
     for (const v of data.verifications) {
-      try {
-        await db.insert(verification).values(v);
-      } catch (e) {}
+      try { await db.insert(verification).values(v); } catch {}
     }
   }
 }
@@ -179,4 +217,165 @@ export async function unbanUserData(id: string) {
     .update(user)
     .set({ banned: false, banReason: null, banExpires: null })
     .where(eq(user.id, id));
+}
+
+// --- Project queries ---
+
+export async function getProjects() {
+  return db
+    .select({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      createdBy: project.createdBy,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      taskCount: sqlOp<number>`count(${task.id})`,
+    })
+    .from(project)
+    .leftJoin(task, eq(project.id, task.projectId))
+    .groupBy(project.id)
+    .orderBy(desc(project.createdAt));
+}
+
+export async function getProjectById(id: string) {
+  const rows = await db
+    .select()
+    .from(project)
+    .where(eq(project.id, id));
+  return rows[0] ?? null;
+}
+
+export async function createProject(data: {
+  name: string;
+  description?: string;
+  createdBy: string;
+}) {
+  const result = await db.insert(project).values(data).returning();
+  return result[0];
+}
+
+export async function updateProject(
+  id: string,
+  data: { name?: string; description?: string; status?: "active" | "archived" }
+) {
+  await db.update(project).set(data).where(eq(project.id, id));
+}
+
+export async function deleteProject(id: string) {
+  await db.delete(project).where(eq(project.id, id));
+}
+
+// --- Task queries ---
+
+export async function getTasksByProject(projectId: string) {
+  return db
+    .select({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      projectId: task.projectId,
+      assigneeId: task.assigneeId,
+      createdBy: task.createdBy,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      assigneeName: user.name,
+      assigneeImage: user.image,
+    })
+    .from(task)
+    .leftJoin(user, eq(task.assigneeId, user.id))
+    .where(eq(task.projectId, projectId))
+    .orderBy(desc(task.createdAt));
+}
+
+export async function getTaskById(id: string) {
+  const rows = await db
+    .select({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      projectId: task.projectId,
+      assigneeId: task.assigneeId,
+      createdBy: task.createdBy,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      assigneeName: user.name,
+      assigneeImage: user.image,
+    })
+    .from(task)
+    .leftJoin(user, eq(task.assigneeId, user.id))
+    .where(eq(task.id, id));
+  return rows[0] ?? null;
+}
+
+export async function createTask(data: {
+  title: string;
+  description?: string;
+  status?: "todo" | "in_progress" | "in_review" | "done";
+  priority?: "low" | "medium" | "high" | "urgent";
+  dueDate?: Date | null;
+  projectId: string;
+  assigneeId?: string | null;
+  createdBy: string;
+}) {
+  const result = await db.insert(task).values(data).returning();
+  return result[0];
+}
+
+export async function updateTask(
+  id: string,
+  data: {
+    title?: string;
+    description?: string;
+    status?: "todo" | "in_progress" | "in_review" | "done";
+    priority?: "low" | "medium" | "high" | "urgent";
+    dueDate?: Date | null;
+    assigneeId?: string | null;
+  }
+) {
+  await db.update(task).set(data).where(eq(task.id, id));
+}
+
+export async function deleteTask(id: string) {
+  await db.delete(task).where(eq(task.id, id));
+}
+
+// --- Comment queries ---
+
+export async function getCommentsByTask(taskId: string) {
+  return db
+    .select({
+      id: comment.id,
+      content: comment.content,
+      taskId: comment.taskId,
+      authorId: comment.authorId,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
+      authorName: user.name,
+      authorImage: user.image,
+    })
+    .from(comment)
+    .leftJoin(user, eq(comment.authorId, user.id))
+    .where(eq(comment.taskId, taskId))
+    .orderBy(comment.createdAt);
+}
+
+export async function createComment(data: {
+  content: string;
+  taskId: string;
+  authorId: string;
+}) {
+  const result = await db.insert(comment).values(data).returning();
+  return result[0];
+}
+
+export async function deleteComment(id: string) {
+  await db.delete(comment).where(eq(comment.id, id));
 }

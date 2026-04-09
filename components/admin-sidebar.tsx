@@ -12,11 +12,13 @@ import {
   RiLogoutBoxLine,
   RiMenuLine,
   RiCloseLine,
+  RiFolderLine,
 } from "@remixicon/react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: RiDashboardLine },
+  { href: "/admin/projects", label: "Projects", icon: RiFolderLine },
   { href: "/admin/users", label: "Users", icon: RiUserLine },
   { href: "/admin/settings", label: "Settings", icon: RiSettings3Line },
 ];

@@ -51,10 +51,13 @@ export const restoreDatabase = adminOnlyAction
   .schema(
     z.object({
       data: z.object({
-        users: z.array(z.any()),
-        sessions: z.array(z.any()),
-        accounts: z.array(z.any()),
-        verifications: z.array(z.any()),
+        users: z.array(z.any()).optional(),
+        sessions: z.array(z.any()).optional(),
+        accounts: z.array(z.any()).optional(),
+        verifications: z.array(z.any()).optional(),
+        projects: z.array(z.any()).optional(),
+        tasks: z.array(z.any()).optional(),
+        comments: z.array(z.any()).optional(),
       }),
     })
   )
