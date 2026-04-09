@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { AttachmentList, type AttachmentType } from "@/components/attachment-list";
+import { listTaskAttachments } from "@/lib/actions/files";
 import {
   getUserCollectionDetail,
   getUserTasks,
@@ -100,6 +102,7 @@ export default function CollectionDetailPage() {
   const [editForm, setEditForm] = useState({ title: "", description: "", status: "todo", priority: "medium", dueDate: "" });
   const [newTaskForm, setNewTaskForm] = useState({ title: "", description: "", priority: "medium" });
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [taskAttachments, setTaskAttachments] = useState<AttachmentType[]>([]);
 
   // Members panel
   const [showMembers, setShowMembers] = useState(false);
@@ -133,6 +136,11 @@ export default function CollectionDetailPage() {
     if (res?.data) setComments(res.data as any);
   };
 
+  const loadAttachments = async (taskId: string) => {
+    const res = await listTaskAttachments({ taskId });
+    if (res?.data) setTaskAttachments(res.data as AttachmentType[]);
+  };
+
   const loadMembers = async () => {
     const res = await getMembers({ collectionId });
     if (res?.data) {
@@ -156,6 +164,7 @@ export default function CollectionDetailPage() {
     setEditMode(false);
     setDeleteConfirm(false);
     loadComments(task.id);
+    loadAttachments(task.id);
   };
 
   const handleCreateTask = async () => {
@@ -455,6 +464,14 @@ export default function CollectionDetailPage() {
                     Created {new Date(selectedTask.createdAt).toLocaleDateString()}
                   </div>
                 </div>
+
+                {/* Attachments */}
+                <AttachmentList
+                  attachments={taskAttachments}
+                  taskId={selectedTask.id}
+                  canDelete={canWrite}
+                  onAttachmentChange={() => loadAttachments(selectedTask.id)}
+                />
 
                 <Separator />
 

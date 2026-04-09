@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { AttachmentList, type AttachmentType } from "@/components/attachment-list";
+import { listTaskAttachments, adminDeleteAttachment } from "@/lib/actions/files";
 import {
   getProjectDetail,
   listTasks,
@@ -89,6 +91,7 @@ export default function ProjectDetailPage() {
   const [editForm, setEditForm] = useState<{ title: string; description: string; status: string; priority: string; dueDate: string }>({ title: "", description: "", status: "todo", priority: "medium", dueDate: "" });
   const [newTaskForm, setNewTaskForm] = useState({ title: "", description: "", priority: "medium" as string });
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [taskAttachments, setTaskAttachments] = useState<AttachmentType[]>([]);
 
   const loadProject = useCallback(async () => {
     const [projRes, tasksRes] = await Promise.all([
@@ -107,6 +110,11 @@ export default function ProjectDetailPage() {
     if (res?.data) setComments(res.data as any);
   };
 
+  const loadAttachments = async (taskId: string) => {
+    const res = await listTaskAttachments({ taskId });
+    if (res?.data) setTaskAttachments(res.data as AttachmentType[]);
+  };
+
   const openTask = (task: Task) => {
     setSelectedTask(task);
     setEditForm({
@@ -119,6 +127,7 @@ export default function ProjectDetailPage() {
     setEditMode(false);
     setDeleteConfirm(false);
     loadComments(task.id);
+    loadAttachments(task.id);
   };
 
   const handleCreateTask = async () => {
@@ -393,6 +402,15 @@ export default function ProjectDetailPage() {
                     Created {new Date(selectedTask.createdAt).toLocaleDateString()}
                   </div>
                 </div>
+
+                {/* Attachments */}
+                <AttachmentList
+                  attachments={taskAttachments}
+                  taskId={selectedTask.id}
+                  canDelete={true}
+                  isAdmin={true}
+                  onAttachmentChange={() => loadAttachments(selectedTask.id)}
+                />
 
                 <Separator />
 

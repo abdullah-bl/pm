@@ -86,6 +86,35 @@ export const comment = sqliteTable(
   (table) => [index("comment_taskId_idx").on(table.taskId)],
 );
 
+export const attachment = sqliteTable(
+  "attachment",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    url: text("url").notNull(),
+    filename: text("filename").notNull(),
+    mimetype: text("mimetype").notNull(),
+    size: integer("size").notNull(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => task.id, { onDelete: "cascade" }),
+    commentId: text("comment_id").references(() => comment.id, {
+      onDelete: "cascade",
+    }),
+    uploadedBy: text("uploaded_by")
+      .notNull()
+      .references(() => user.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+  },
+  (table) => [
+    index("attachment_taskId_idx").on(table.taskId),
+    index("attachment_commentId_idx").on(table.commentId),
+  ],
+);
+
 export const collectionMember = sqliteTable(
   "collection_member",
   {
@@ -149,15 +178,32 @@ export const taskRelations = relations(task, ({ one, many }) => ({
     references: [user.id],
   }),
   comments: many(comment),
+  attachments: many(attachment),
 }));
 
-export const commentRelations = relations(comment, ({ one }) => ({
+export const commentRelations = relations(comment, ({ one, many }) => ({
   task: one(task, {
     fields: [comment.taskId],
     references: [task.id],
   }),
   author: one(user, {
     fields: [comment.authorId],
+    references: [user.id],
+  }),
+  attachments: many(attachment),
+}));
+
+export const attachmentRelations = relations(attachment, ({ one }) => ({
+  task: one(task, {
+    fields: [attachment.taskId],
+    references: [task.id],
+  }),
+  comment: one(comment, {
+    fields: [attachment.commentId],
+    references: [comment.id],
+  }),
+  uploader: one(user, {
+    fields: [attachment.uploadedBy],
     references: [user.id],
   }),
 }));

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { user, session, account, verification, project, task, comment, collectionMember } from "@/lib/db/schema";
+import { user, session, account, verification, project, task, comment, collectionMember, attachment } from "@/lib/db/schema";
 import { eq, count, not, ilike, or, and, desc, sql as sqlOp } from "drizzle-orm";
 
 export async function getUserCount() {
@@ -592,4 +592,57 @@ export async function getMemberCount(collectionId: string) {
 export async function getCollectionMemberCount() {
   const result = await db.select({ count: count() }).from(collectionMember);
   return result[0].count;
+}
+
+// --- Attachment queries ---
+
+export async function getAttachmentsByTask(taskId: string) {
+  return db
+    .select({
+      id: attachment.id,
+      url: attachment.url,
+      filename: attachment.filename,
+      mimetype: attachment.mimetype,
+      size: attachment.size,
+      taskId: attachment.taskId,
+      commentId: attachment.commentId,
+      uploadedBy: attachment.uploadedBy,
+      createdAt: attachment.createdAt,
+    })
+    .from(attachment)
+    .where(eq(attachment.taskId, taskId))
+    .orderBy(attachment.createdAt);
+}
+
+export async function getAttachmentsByComment(commentId: string) {
+  return db
+    .select()
+    .from(attachment)
+    .where(eq(attachment.commentId, commentId))
+    .orderBy(attachment.createdAt);
+}
+
+export async function getAttachmentById(id: string) {
+  const rows = await db
+    .select()
+    .from(attachment)
+    .where(eq(attachment.id, id));
+  return rows[0] ?? null;
+}
+
+export async function createAttachment(data: {
+  url: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  taskId: string;
+  commentId?: string | null;
+  uploadedBy: string;
+}) {
+  const result = await db.insert(attachment).values(data).returning();
+  return result[0];
+}
+
+export async function deleteAttachmentRecord(id: string) {
+  await db.delete(attachment).where(eq(attachment.id, id));
 }
