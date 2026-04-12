@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { AdminSidebar } from "@/components/admin-sidebar";
@@ -13,7 +13,6 @@ export default async function AdminLayout({
   });
 
   if (!session || session.user.role !== "admin") {
-    console.log("session", session)
     notFound();
   }
 

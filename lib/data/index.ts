@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
+import type { CollectionMemberRole } from "@/lib/db";
 import { user, session, account, verification, project, task, comment, collectionMember, attachment } from "@/lib/db/schema";
-import { eq, count, not, ilike, or, and, desc, sql as sqlOp } from "drizzle-orm";
+import { eq, count, not, like, or, and, desc, sql as sqlOp } from "drizzle-orm";
 
 export async function getUserCount() {
   const result = await db.select({ count: count() }).from(user);
@@ -97,9 +98,9 @@ export async function listUsersPaginated(opts: {
   if (search) {
     conditions.push(
       or(
-        ilike(user.name, `%${search}%`),
-        ilike(user.email, `%${search}%`),
-        ilike(user.username, `%${search}%`)
+        like(user.name, `%${search}%`),
+        like(user.email, `%${search}%`),
+        like(user.username, `%${search}%`)
       )!
     );
   }
@@ -202,7 +203,7 @@ export async function insertAllData(data: {
   }
 }
 
-export async function setRoleByEmail(email: string, role: string) {
+export async function setCollectionMemberRoleByEmail(email: string, role: string) {
   await db.update(user).set({ role }).where(eq(user.email, email));
 }
 
@@ -405,7 +406,7 @@ export async function getCollectionsForUser(userId: string) {
       createdBy: project.createdBy,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      role: sqlOp<string>`'admin'`.as("role"),
+      role: sqlOp<string>`'owner'`.as("role"),
       taskCount: sqlOp<number>`0`.as("taskCount"),
     })
     .from(project)
@@ -452,7 +453,7 @@ export async function getCollectionsForUser(userId: string) {
   }
 
   return {
-    owned: owned.map((c) => ({ ...c, role: "admin" as const })),
+    owned: owned.map((c) => ({ ...c, role: "owner" as const })),
     shared: memberOf.map((c) => ({ ...c, taskCount: (c as any).taskCount || 0 })),
   };
 }
@@ -465,7 +466,7 @@ export async function getCollectionWithAccess(collectionId: string, userId: stri
     .where(and(eq(project.id, collectionId), eq(project.createdBy, userId)));
 
   if (proj) {
-    return { collection: proj, role: "admin" as const };
+    return { collection: proj, role: "owner" as const };
   }
 
   // Check if user is a member
@@ -485,27 +486,27 @@ export async function getCollectionWithAccess(collectionId: string, userId: stri
     const [u] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId));
     if (u?.role === "admin") {
       const [col] = await db.select().from(project).where(eq(project.id, collectionId));
-      return col ? { collection: col, role: "admin" as const } : null;
+      return col ? { collection: col, role: "owner" as const } : null;
     }
     return null;
   }
 
   const [col] = await db.select().from(project).where(eq(project.id, collectionId));
-  return col ? { collection: col, role: membership.role as "admin" | "write" | "read" } : null;
+  return col ? { collection: col, role: membership.role as CollectionMemberRole } : null;
 }
 
 export async function checkCollectionAccess(
   collectionId: string,
   userId: string,
-  requiredRole?: "admin" | "write" | "read"
+  requiredCollectionMemberRole?: CollectionMemberRole
 ) {
   const access = await getCollectionWithAccess(collectionId, userId);
   if (!access) return null;
 
-  if (!requiredRole) return access.role;
+  if (!requiredCollectionMemberRole) return access.role;
 
-  const roleHierarchy = { read: 0, write: 1, admin: 2 };
-  if (roleHierarchy[access.role] >= roleHierarchy[requiredRole]) {
+  const roleHierarchy: Record<CollectionMemberRole, number> = { read: 0, write: 1, owner: 2 };
+  if (roleHierarchy[access.role] >= roleHierarchy[requiredCollectionMemberRole]) {
     return access.role;
   }
   return null;
@@ -514,7 +515,7 @@ export async function checkCollectionAccess(
 export async function addCollectionMember(data: {
   collectionId: string;
   userId: string;
-  role?: "admin" | "write" | "read";
+  role?: CollectionMemberRole;
   status?: "pending" | "accepted";
 }) {
   const result = await db
@@ -533,7 +534,7 @@ export async function addCollectionMember(data: {
 export async function updateCollectionMember(
   collectionId: string,
   userId: string,
-  data: { role?: "admin" | "write" | "read"; status?: "pending" | "accepted" }
+  data: { role?: CollectionMemberRole; status?: "pending" | "accepted" }
 ) {
   const updates: any = { ...data };
   if (data.status === "accepted") {

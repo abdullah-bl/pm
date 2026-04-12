@@ -1,22 +1,28 @@
-import { auth } from "./auth"
+import { auth } from "./auth/auth"
+import { db } from "./db"
+import { user } from "./db/schema/auth-schema"
+import { eq } from "drizzle-orm"
 
 const ADMIN_PASSWORD = "admin@pm.app" as string
 
 (async () => {
     try {
-        await auth.api.signUpEmail({
-            body: {
-                email: "admin@pm.app",
-                password: ADMIN_PASSWORD,
-                name: "Admin User",
-            },
-        })
-        console.log("Admin user created")
-    } catch (error: any) {
-        if (error?.cause?.code === "USER_ALREADY_EXISTS") {
-            console.log("Admin user already exists")
+        const existingAdmin = await db.select().from(user).where(eq(user.email, "admin@pm.app")).limit(1)
+
+        if (existingAdmin.length === 0) {
+            await auth.api.createUser({
+                body: {
+                    email: "admin@pm.app",
+                    password: ADMIN_PASSWORD,
+                    name: "Admin",
+                    role: "admin",
+                },
+            })
+            console.log("Admin user created")
         } else {
-            console.error("Error creating admin:", error)
+            console.log("Admin user already exists")
         }
+    } catch (error: any) {
+        console.error("Error creating admin:", error)
     }
 })().catch(console.error)

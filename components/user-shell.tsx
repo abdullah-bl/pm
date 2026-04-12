@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth/auth-client";
 import {
   RiFolderLine,
   RiLogoutBoxLine,
@@ -23,6 +23,7 @@ export function UserShell({
   userName: string;
   userEmail: string;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -34,6 +35,11 @@ export function UserShell({
   const navItems = [
     { href: "/", label: "My Collections", icon: RiHomeLine },
   ];
+
+  const handleSignOut = () => {
+    signOut();
+    router.refresh()
+  };
 
   const sidebar = (
     <div className="flex h-full flex-col justify-between py-4">
@@ -69,7 +75,7 @@ export function UserShell({
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground"
-          onClick={() => signOut()}
+          onClick={handleSignOut}
         >
           <RiLogoutBoxLine className="size-4" />
           Sign Out

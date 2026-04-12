@@ -1,5 +1,5 @@
 import { createSafeActionClient } from "next-safe-action";
-import { auth } from "./auth";
+import { auth } from "./auth/auth";
 import { headers } from "next/headers";
 import { getCollectionWithAccess } from "./data";
 

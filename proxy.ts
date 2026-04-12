@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 
-const publicRoutes = ["/sign-in", "/sign-up"];
+const publicRoutes = ["/sign-in"];
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Allow API routes and static files
@@ -27,8 +27,8 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // Non-admin users can't access /admin routes
-  if (path.startsWith("/admin") && session.user.role !== "admin") {
+  // Non-admin users can't access /dashboard routes
+  if (path.startsWith("/dashboard") && session.user.role !== "admin") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

@@ -127,7 +127,7 @@ export const collectionMember = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "write", "read"] })
+    role: text("role", { enum: ["owner", "write", "read"] })
       .default("write")
       .notNull(),
     status: text("status", { enum: ["pending", "accepted"] })

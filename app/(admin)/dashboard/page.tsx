@@ -87,13 +87,13 @@ export default function AdminDashboard() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/admin/users">
+          <Link href="/dashboard/users">
             <Button variant="outline" size="sm" className="gap-2">
               <RiUserLine className="size-4" />
               View All Users
             </Button>
           </Link>
-          <Link href="/admin/settings">
+          <Link href="/dashboard/settings">
             <Button variant="outline" size="sm" className="gap-2">
               <RiSettings3Line className="size-4" />
               Settings

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth/auth-client";
 import {
   RiDashboardLine,
   RiUserLine,
@@ -17,19 +17,25 @@ import {
 import { useState } from "react";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: RiDashboardLine },
-  { href: "/admin/collections", label: "Collections", icon: RiFolderLine },
-  { href: "/admin/users", label: "Users", icon: RiUserLine },
-  { href: "/admin/settings", label: "Settings", icon: RiSettings3Line },
+  { href: "/dashboard", label: "Dashboard", icon: RiDashboardLine },
+  { href: "/dashboard/collections", label: "Collections", icon: RiFolderLine },
+  { href: "/dashboard/users", label: "Users", icon: RiUserLine },
+  { href: "/dashboard/settings", label: "Settings", icon: RiSettings3Line },
 ];
 
 export function AdminSidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
+  };
+
+  const handleSignOut = () => {
+    signOut();
+    router.refresh()
   };
 
   const sidebar = (
@@ -62,7 +68,7 @@ export function AdminSidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground"
-          onClick={() => signOut()}
+          onClick={handleSignOut}
         >
           <RiLogoutBoxLine className="size-4" />
           Logout

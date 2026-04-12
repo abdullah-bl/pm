@@ -24,6 +24,7 @@ import {
   kickMember,
   searchUsers,
 } from "@/lib/actions/collections";
+import type { CollectionMemberRole } from "@/lib/db";
 import { toast } from "sonner";
 import {
   RiArrowLeftLine,
@@ -66,7 +67,7 @@ type CommentType = {
 type Member = {
   id: string;
   userId: string;
-  role: string;
+  role: CollectionMemberRole;
   userName: string | null;
   userEmail: string | null;
 };
@@ -91,7 +92,7 @@ export default function CollectionDetailPage() {
   const collectionId = params.id as string;
 
   const [collection, setCollection] = useState<{ name: string; description: string | null } | null>(null);
-  const [userRole, setUserRole] = useState<string>("read");
+  const [userRole, setUserRole] = useState<CollectionMemberRole>("read");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
@@ -112,8 +113,8 @@ export default function CollectionDetailPage() {
   const [inviteResults, setInviteResults] = useState<{ id: string; name: string; email: string }[]>([]);
   const [inviteRole, setInviteRole] = useState<"write" | "read">("write");
 
-  const canWrite = userRole === "admin" || userRole === "write";
-  const canAdmin = userRole === "admin";
+  const canWrite = userRole === "owner" || userRole === "write";
+  const canAdmin = userRole === "owner";
 
   const loadData = useCallback(async () => {
     const [detailRes, tasksRes] = await Promise.all([
@@ -238,7 +239,7 @@ export default function CollectionDetailPage() {
     }
   };
 
-  const handleRoleChange = async (userId: string, role: "admin" | "write" | "read") => {
+  const handleRoleChange = async (userId: string, role: CollectionMemberRole) => {
     const res = await changeMemberRole({ collectionId, userId, role });
     if (res?.data) {
       toast.success("Role updated");
@@ -568,7 +569,7 @@ export default function CollectionDetailPage() {
                       value={m.role}
                       onChange={(e) => handleRoleChange(m.userId, e.target.value as any)}
                     >
-                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
                       <option value="write">Write</option>
                       <option value="read">Read</option>
                     </select>

@@ -1,6 +1,6 @@
 "use server";
 
-import { adminOnlyAction } from "@/lib/safe-action";
+import { adminOnlyAction, userAction } from "@/lib/safe-action";
 import { z } from "zod";
 import { promises as fs } from "fs";
 import path from "path";
@@ -44,6 +44,86 @@ export const backupDatabase = adminOnlyAction
     } catch (error) {
       console.error("Backup error:", error);
       throw new Error("Backup failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
+  });
+
+export const validateBackup = userAction
+  .schema(
+    z.object({
+      data: z.object({
+        users: z.array(z.any()).optional(),
+        sessions: z.array(z.any()).optional(),
+        accounts: z.array(z.any()).optional(),
+        verifications: z.array(z.any()).optional(),
+        projects: z.array(z.any()).optional(),
+        tasks: z.array(z.any()).optional(),
+        comments: z.array(z.any()).optional(),
+        members: z.array(z.any()).optional(),
+      }),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    try {
+      const issues: string[] = [];
+      const summary = {
+        users: parsedInput.data.users?.length || 0,
+        sessions: parsedInput.data.sessions?.length || 0,
+        accounts: parsedInput.data.accounts?.length || 0,
+        verifications: parsedInput.data.verifications?.length || 0,
+        projects: parsedInput.data.projects?.length || 0,
+        tasks: parsedInput.data.tasks?.length || 0,
+        comments: parsedInput.data.comments?.length || 0,
+        members: parsedInput.data.members?.length || 0,
+      };
+
+      // Basic structure validation
+      if (!parsedInput.data.users) {
+        issues.push("Missing required 'users' array");
+      } else {
+        // Check required user fields
+        parsedInput.data.users.forEach((u: any, i: number) => {
+          if (!u.id || !u.email) {
+            issues.push(`Invalid user at index ${i}: missing id or email`);
+          }
+        });
+      }
+
+      if (parsedInput.data.projects) {
+        parsedInput.data.projects.forEach((p: any, i: number) => {
+          if (!p.id || !p.name || !p.createdBy) {
+            issues.push(`Invalid project at index ${i}: missing id, name, or createdBy`);
+          }
+        });
+      }
+
+      if (parsedInput.data.tasks) {
+        parsedInput.data.tasks.forEach((t: any, i: number) => {
+          if (!t.id || !t.title || !t.projectId) {
+            issues.push(`Invalid task at index ${i}: missing id, title, or projectId`);
+          }
+        });
+      }
+
+      if (parsedInput.data.members) {
+        parsedInput.data.members.forEach((m: any, i: number) => {
+          if (!m.id || !m.collectionId || !m.userId) {
+            issues.push(`Invalid member at index ${i}: missing id, collectionId, or userId`);
+          }
+        });
+      }
+
+      return {
+        valid: issues.length === 0,
+        issues,
+        summary,
+      };
+    } catch (error) {
+      console.error("Validation error:", error);
+      return {
+        valid: false,
+        issues: ["Validation failed: " + (error instanceof Error ? error.message : "Unknown error")],
+        summary: null,
+      };
     }
   });
 
@@ -130,6 +210,76 @@ export const listBackups = adminOnlyAction
     } catch (error) {
       console.error("List backups error:", error);
       return [];
+    }
+  });
+
+export const validateBackupFile = userAction
+  .schema(z.object({ filename: z.string().min(1) }))
+  .action(async ({ parsedInput }) => {
+    try {
+      const filePath = path.join(BACKUPS_DIR, parsedInput.filename);
+      const content = await fs.readFile(filePath, "utf-8");
+      const data = JSON.parse(content);
+
+      const issues: string[] = [];
+      const summary = {
+        users: data.users?.length || 0,
+        sessions: data.sessions?.length || 0,
+        accounts: data.accounts?.length || 0,
+        verifications: data.verifications?.length || 0,
+        projects: data.projects?.length || 0,
+        tasks: data.tasks?.length || 0,
+        comments: data.comments?.length || 0,
+        members: data.members?.length || 0,
+      };
+
+      // Basic structure validation
+      if (!data.users) {
+        issues.push("Missing required 'users' array");
+      } else {
+        data.users.forEach((u: any, i: number) => {
+          if (!u.id || !u.email) {
+            issues.push(`Invalid user at index ${i}: missing id or email`);
+          }
+        });
+      }
+
+      if (data.projects) {
+        data.projects.forEach((p: any, i: number) => {
+          if (!p.id || !p.name || !p.createdBy) {
+            issues.push(`Invalid project at index ${i}: missing id, name, or createdBy`);
+          }
+        });
+      }
+
+      if (data.tasks) {
+        data.tasks.forEach((t: any, i: number) => {
+          if (!t.id || !t.title || !t.projectId) {
+            issues.push(`Invalid task at index ${i}: missing id, title, or projectId`);
+          }
+        });
+      }
+
+      if (data.members) {
+        data.members.forEach((m: any, i: number) => {
+          if (!m.id || !m.collectionId || !m.userId) {
+            issues.push(`Invalid member at index ${i}: missing id, collectionId, or userId`);
+          }
+        });
+      }
+
+      return {
+        valid: issues.length === 0,
+        issues,
+        summary,
+      };
+    } catch (error) {
+      console.error("Validate backup file error:", error);
+      return {
+        valid: false,
+        issues: ["Validation failed: " + (error instanceof Error ? error.message : "Unknown error")],
+        summary: null,
+      };
     }
   });
 

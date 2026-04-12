@@ -2,7 +2,7 @@
 
 import { userAction } from "@/lib/safe-action";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { headers } from "next/headers";
 import {
   getCollectionsForUser,
@@ -26,6 +26,7 @@ import {
   checkCollectionAccess,
   listUsersPaginated,
 } from "@/lib/data";
+import type { CollectionMemberRole } from "@/lib/db";
 
 async function getCurrentUserId() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -71,7 +72,7 @@ export const editCollection = userAction
   }))
   .action(async ({ parsedInput }) => {
     const userId = await getCurrentUserId();
-    const access = await checkCollectionAccess(parsedInput.id, userId, "admin");
+    const access = await checkCollectionAccess(parsedInput.id, userId, "owner");
     if (!access) throw new Error("No access");
     const { id, ...data } = parsedInput;
     await updateProject(id, data);
@@ -82,7 +83,7 @@ export const removeCollection = userAction
   .schema(z.object({ id: z.string() }))
   .action(async ({ parsedInput }) => {
     const userId = await getCurrentUserId();
-    const access = await checkCollectionAccess(parsedInput.id, userId, "admin");
+    const access = await checkCollectionAccess(parsedInput.id, userId, "owner");
     if (!access) throw new Error("No access");
     await deleteProject(parsedInput.id);
     return { success: true };
@@ -183,18 +184,18 @@ export const getMembers = userAction
     // Also get the owner info
     const collection = await getProjectById(parsedInput.collectionId);
     const members = await getCollectionMembers(parsedInput.collectionId);
-    return { collection, members, userRole: access };
+    return { collection, members, userCollectionMemberRole: access };
   });
 
 export const inviteMember = userAction
   .schema(z.object({
     collectionId: z.string(),
     userId: z.string(),
-    role: z.enum(["admin", "write", "read"]).default("write"),
+    role: z.enum(["owner", "write", "read"]).default("write"),
   }))
   .action(async ({ parsedInput }) => {
     const currentUserId = await getCurrentUserId();
-    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "admin");
+    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "owner");
     if (!access) throw new Error("No access");
     await addCollectionMember({
       collectionId: parsedInput.collectionId,
@@ -208,11 +209,11 @@ export const changeMemberRole = userAction
   .schema(z.object({
     collectionId: z.string(),
     userId: z.string(),
-    role: z.enum(["admin", "write", "read"]),
+    role: z.enum(["owner", "write", "read"]),
   }))
   .action(async ({ parsedInput }) => {
     const currentUserId = await getCurrentUserId();
-    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "admin");
+    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "owner");
     if (!access) throw new Error("No access");
     await updateCollectionMember(parsedInput.collectionId, parsedInput.userId, {
       role: parsedInput.role,
@@ -227,7 +228,7 @@ export const kickMember = userAction
   }))
   .action(async ({ parsedInput }) => {
     const currentUserId = await getCurrentUserId();
-    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "admin");
+    const access = await checkCollectionAccess(parsedInput.collectionId, currentUserId, "owner");
     if (!access) throw new Error("No access");
     await removeCollectionMember(parsedInput.collectionId, parsedInput.userId);
     return { success: true };
