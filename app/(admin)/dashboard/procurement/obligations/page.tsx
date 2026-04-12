@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +15,11 @@ import {
 import {
   createObligation,
   cancelObligation,
+  listAllObligations,
+  listProcurements,
+  listBudgetYears,
 } from "@/lib/actions/procurement";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency } from "@/lib/formatters";
 import { toast } from "sonner";
 import {
   RiAddLine,
@@ -34,95 +36,74 @@ type Obligation = {
   procurementId: string;
   budgetYearId: string;
   note: string | null;
-  year?: number;
+  budgetYear?: number;
   budgetName?: string;
   procurementName?: string;
+  procurementRef?: string;
   paidAmount?: number;
   remainingAmount?: number;
 };
 
+type Procurement = {
+  id: string;
+  name: string;
+  status: string;
+};
+
+type BudgetYear = {
+  id: string;
+  budgetId: string;
+  year: number;
+  cash: number;
+  credit: number;
+  consumedCash: number;
+  consumedCredit: number;
+  status: string;
+  budgetName: string;
+  budgetRef: string;
+};
+
 export default function ObligationsPage() {
-  const router = useRouter();
   const [obligations, setObligations] = useState<Obligation[]>([]);
-  const [procurements, setProcurements] = useState<any[]>([]);
-  const [budgetYears, setBudgetYears] = useState<any[]>([]);
+  const [procurements, setProcurements] = useState<Procurement[]>([]);
+  const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
 
   const load = useCallback(async () => {
-    const { db } = await import("@/lib/db");
-    const { obligation, procurement, budgetYear, budget } = await import("@/lib/db/schema");
-    const { eq, desc } = await import("drizzle-orm");
-
-    const [obs, procs, bys] = await Promise.all([
-      db.select({
-        id: obligation.id,
-        referenceNumber: obligation.referenceNumber,
-        amount: obligation.amount,
-        type: obligation.type,
-        status: obligation.status,
-        procurementId: obligation.procurementId,
-        budgetYearId: obligation.budgetYearId,
-        note: obligation.note,
-      })
-        .from(obligation)
-        .orderBy(desc(obligation.createdAt)),
-      db.select({ id: procurement.id, name: procurement.name, status: procurement.status })
-        .from(procurement),
-      db.select({
-        id: budgetYear.id,
-        year: budgetYear.year,
-        cash: budgetYear.cash,
-        credit: budgetYear.credit,
-        consumedCash: budgetYear.consumedCash,
-        consumedCredit: budgetYear.consumedCredit,
-        status: budgetYear.status,
-        budgetName: budget.name,
-      })
-        .from(budgetYear)
-        .innerJoin(budget, eq(budgetYear.budgetId, budget.id))
-        .where(eq(budgetYear.status, "open")),
+    const [obsRes, procsRes, bysRes] = await Promise.all([
+      listAllObligations({}),
+      listProcurements({}),
+      listBudgetYears({}),
     ]);
 
-    // Enrich obligations
-    const enriched: Obligation[] = [];
-    for (const o of obs) {
-      const proc = procs.find((p) => p.id === o.procurementId);
-      const by = bys.find((b) => b.id === o.budgetYearId);
-      
-      // Get paid amount
-      const { payment } = await import("@/lib/db/schema");
-      const { sql } = await import("drizzle-orm");
-      const paidRes = await db.select({
-        total: sql<number>`sum(amount)`,
-      })
-        .from(payment)
-        .where(eq(payment.obligationId, o.id));
-      
-      const paidAmount = paidRes[0]?.total ?? 0;
-
-      enriched.push({
-        ...o,
-        year: by?.year,
-        budgetName: by?.budgetName,
-        procurementName: proc?.name,
-        paidAmount,
-        remainingAmount: o.amount - paidAmount,
-      });
+    if (obsRes?.data) {
+      setObligations(obsRes.data as unknown as Obligation[]);
     }
-
-    setObligations(enriched);
-    setProcurements(procs.filter((p: any) => p.status === "contract_active"));
-    setBudgetYears(bys);
+    if (procsRes?.data) {
+      setProcurements(
+        (procsRes.data as unknown as Procurement[]).filter(
+          (p) => p.status === "contract_active"
+        )
+      );
+    }
+    if (bysRes?.data) {
+      setBudgetYears(
+        (bysRes.data as unknown as BudgetYear[]).filter((y) => y.status === "open")
+      );
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const filtered = statusFilter === "all"
-    ? obligations
-    : obligations.filter((o) => o.status === statusFilter);
+  const filtered =
+    statusFilter === "all"
+      ? obligations
+      : obligations.filter((o) => o.status === statusFilter);
 
   const handleCancel = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this obligation?")) return;
@@ -140,7 +121,9 @@ export default function ObligationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Obligations</h1>
-          <p className="text-muted-foreground">Manage procurement obligations.</p>
+          <p className="text-muted-foreground">
+            Manage procurement obligations.
+          </p>
         </div>
         <Button className="gap-2" onClick={() => setShowCreate(true)}>
           <RiAddLine className="size-4" />
@@ -180,32 +163,39 @@ export default function ObligationsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={9}
+                  className="h-24 text-center text-muted-foreground"
+                >
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={9}
+                  className="h-24 text-center text-muted-foreground"
+                >
                   <RiBookmarkLine className="mx-auto size-8 mb-2 opacity-50" />
-                  <p className="text-sm">No obligations found.</p>
+                  <p className="text-sm">
+                    {statusFilter !== "all"
+                      ? "No obligations match this filter."
+                      : "No obligations found."}
+                  </p>
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((o) => (
-                <TableRow
-                  key={o.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("button")) return;
-                    router.push(`/dashboard/procurement/obligations/${o.id}`);
-                  }}
-                >
-                  <TableCell className="font-mono text-sm">{o.referenceNumber}</TableCell>
+                <TableRow key={o.id} className="hover:bg-muted/50">
+                  <TableCell className="font-mono text-sm">
+                    {o.referenceNumber}
+                  </TableCell>
                   <TableCell>{formatCurrency(o.amount)}</TableCell>
                   <TableCell className="capitalize">{o.type}</TableCell>
                   <TableCell>
-                    <Badge variant={o.status === "active" ? "default" : "secondary"}>
+                    <Badge
+                      variant={o.status === "active" ? "default" : "secondary"}
+                    >
                       {o.status}
                     </Badge>
                   </TableCell>
@@ -214,21 +204,24 @@ export default function ObligationsPage() {
                     {o.budgetName ? (
                       <div className="text-sm">
                         <span className="font-medium">{o.budgetName}</span>
-                        <span className="text-muted-foreground ml-1">({o.year || "—"})</span>
+                        <span className="text-muted-foreground ml-1">
+                          ({o.budgetYear || "—"})
+                        </span>
                       </div>
-                    ) : "—"}
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
-                  <TableCell>{formatCurrency(o.paidAmount)}</TableCell>
-                  <TableCell className="font-medium">{formatCurrency(o.remainingAmount)}</TableCell>
+                  <TableCell>{formatCurrency(o.paidAmount ?? 0)}</TableCell>
+                  <TableCell className="font-medium">
+                    {formatCurrency(o.remainingAmount ?? o.amount)}
+                  </TableCell>
                   <TableCell className="text-right">
                     {o.status === "active" && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancel(o.id);
-                        }}
+                        onClick={() => handleCancel(o.id)}
                         title="Cancel"
                         className="text-destructive hover:text-destructive"
                       >
@@ -267,8 +260,8 @@ function CreateObligationModal({
 }: {
   onClose: () => void;
   onCreated: () => void;
-  procurements: any[];
-  budgetYears: any[];
+  procurements: Procurement[];
+  budgetYears: BudgetYear[];
 }) {
   const [form, setForm] = useState({
     referenceNumber: "",
@@ -313,7 +306,9 @@ function CreateObligationModal({
               toast.success("Obligation created");
               onCreated();
             } else {
-              toast.error(res?.serverError || "Failed to create obligation");
+              toast.error(
+                res?.serverError || "Failed to create obligation"
+              );
             }
             setSubmitting(false);
           }}
@@ -324,7 +319,9 @@ function CreateObligationModal({
             <Input
               placeholder="e.g. OBL-2026-001"
               value={form.referenceNumber}
-              onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, referenceNumber: e.target.value })
+              }
               required
             />
           </div>
@@ -333,12 +330,16 @@ function CreateObligationModal({
             <select
               className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm"
               value={form.procurementId}
-              onChange={(e) => setForm({ ...form, procurementId: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, procurementId: e.target.value })
+              }
               required
             >
               <option value="">Select procurement...</option>
               {procurements.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
@@ -347,7 +348,9 @@ function CreateObligationModal({
             <select
               className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm"
               value={form.budgetYearId}
-              onChange={(e) => setForm({ ...form, budgetYearId: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, budgetYearId: e.target.value })
+              }
               required
             >
               <option value="">Select budget year...</option>
@@ -370,7 +373,9 @@ function CreateObligationModal({
                 type="number"
                 placeholder="0"
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, amount: e.target.value })
+                }
                 required
               />
             </div>
@@ -379,7 +384,9 @@ function CreateObligationModal({
               <select
                 className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm"
                 value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, type: e.target.value })
+                }
               >
                 <option value="cash">Cash</option>
                 <option value="credit">Credit</option>
@@ -395,7 +402,13 @@ function CreateObligationModal({
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={onClose}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Creating..." : "Create"}
             </Button>

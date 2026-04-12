@@ -14,8 +14,10 @@ import {
   budgetTransfer,
   obligation,
   payment,
+  procurementMember,
 } from "@/lib/db/schema";
 import { eq, and, desc, sql, inArray, ne } from "drizzle-orm";
+import { user } from "@/lib/db/schema";
 
 async function getCurrentUserId() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -910,4 +912,76 @@ export const getOverduePayments = userAction
           sql`payment.due_date < ${today}`,
         )
       );
+  });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PROCUREMENT ACCESS CONTROL
+// ═════════════════════════════════════════════════════════════════════════════
+
+export const grantProcurementAccess = userAction
+  .schema(z.object({
+    userId: z.string().min(1),
+    role: z.enum(["read", "write"]),
+  }))
+  .action(async ({ parsedInput }) => {
+    const currentUserId = await getCurrentUserId();
+    
+    return await db.transaction(async (tx) => {
+      // Check if already exists
+      const [existing] = await tx.select().from(procurementMember)
+        .where(eq(procurementMember.userId, parsedInput.userId));
+      
+      if (existing) {
+        // Update role
+        await tx.update(procurementMember)
+          .set({ role: parsedInput.role, grantedBy: currentUserId })
+          .where(eq(procurementMember.userId, parsedInput.userId));
+        return { success: true };
+      }
+      
+      await tx.insert(procurementMember).values({
+        userId: parsedInput.userId,
+        role: parsedInput.role,
+        grantedBy: currentUserId,
+      });
+      return { success: true };
+    });
+  });
+
+export const revokeProcurementAccess = userAction
+  .schema(z.object({ userId: z.string().min(1) }))
+  .action(async ({ parsedInput }) => {
+    await db.delete(procurementMember)
+      .where(eq(procurementMember.userId, parsedInput.userId));
+    return { success: true };
+  });
+
+export const listProcurementMembers = userAction
+  .schema(z.object({}).optional())
+  .action(async () => {
+    return db.select({
+      id: procurementMember.id,
+      userId: procurementMember.userId,
+      role: procurementMember.role,
+      grantedBy: procurementMember.grantedBy,
+      grantedAt: procurementMember.grantedAt,
+      userName: user.name,
+      userEmail: user.email,
+    })
+      .from(procurementMember)
+      .innerJoin(user, eq(procurementMember.userId, user.id))
+      .orderBy(procurementMember.grantedAt);
+  });
+
+export const checkProcurementAccess = userAction
+  .schema(z.object({ userId: z.string().min(1) }))
+  .action(async ({ parsedInput }) => {
+    const [member] = await db.select({
+      role: procurementMember.role,
+    })
+      .from(procurementMember)
+      .where(eq(procurementMember.userId, parsedInput.userId));
+    
+    if (!member) return { hasAccess: false, role: null };
+    return { hasAccess: true, role: member.role };
   });

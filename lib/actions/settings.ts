@@ -59,6 +59,15 @@ export const validateBackup = userAction
         tasks: z.array(z.any()).optional(),
         comments: z.array(z.any()).optional(),
         members: z.array(z.any()).optional(),
+        vendors: z.array(z.any()).optional(),
+        procurements: z.array(z.any()).optional(),
+        procurementLogs: z.array(z.any()).optional(),
+        budgets: z.array(z.any()).optional(),
+        budgetYears: z.array(z.any()).optional(),
+        budgetTransfers: z.array(z.any()).optional(),
+        obligations: z.array(z.any()).optional(),
+        payments: z.array(z.any()).optional(),
+        procMembers: z.array(z.any()).optional(),
       }),
     })
   )
@@ -74,6 +83,15 @@ export const validateBackup = userAction
         tasks: parsedInput.data.tasks?.length || 0,
         comments: parsedInput.data.comments?.length || 0,
         members: parsedInput.data.members?.length || 0,
+        vendors: parsedInput.data.vendors?.length || 0,
+        procurements: parsedInput.data.procurements?.length || 0,
+        procurementLogs: parsedInput.data.procurementLogs?.length || 0,
+        budgets: parsedInput.data.budgets?.length || 0,
+        budgetYears: parsedInput.data.budgetYears?.length || 0,
+        budgetTransfers: parsedInput.data.budgetTransfers?.length || 0,
+        obligations: parsedInput.data.obligations?.length || 0,
+        payments: parsedInput.data.payments?.length || 0,
+        procMembers: parsedInput.data.procMembers?.length || 0,
       };
 
       // Basic structure validation

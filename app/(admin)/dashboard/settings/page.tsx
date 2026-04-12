@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   backupDatabase,
   restoreDatabase,
@@ -12,6 +13,11 @@ import {
   validateBackup,
   validateBackupFile,
 } from "@/lib/actions/settings";
+import {
+  listProcurementMembers,
+  grantProcurementAccess,
+  revokeProcurementAccess,
+} from "@/lib/actions/procurement";
 import { toast } from "sonner";
 import {
   RiDownloadLine,
@@ -23,6 +29,9 @@ import {
   RiCloseLine,
   RiCheckLine,
   RiErrorWarningLine,
+  RiShieldLine,
+  RiAddLine,
+  RiCloseCircleLine,
 } from "@remixicon/react";
 
 type Backup = {
@@ -63,11 +72,21 @@ export default function SettingsPage() {
   const [validating, setValidating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Procurement access state
+  const [procMembers, setProcMembers] = useState<any[]>([]);
+  const [grantUserId, setGrantUserId] = useState("");
+  const [grantRole, setGrantRole] = useState<"read" | "write">("read");
+
   const loadStats = async () => {
     setLoading(true);
-    const [statsRes, backupsRes] = await Promise.all([getDbStatsAction({}), listBackups({})]);
+    const [statsRes, backupsRes, procMembersRes] = await Promise.all([
+      getDbStatsAction({}),
+      listBackups({}),
+      listProcurementMembers({}),
+    ]);
     if (statsRes?.data) setStats(statsRes.data);
     if (backupsRes?.data) setBackups(backupsRes.data);
+    if (procMembersRes?.data) setProcMembers(procMembersRes.data as unknown as any[]);
     setLoading(false);
   };
 
@@ -155,6 +174,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handleGrantProcurementAccess = async () => {
+    if (!grantUserId.trim()) return;
+    const res = await grantProcurementAccess({ userId: grantUserId, role: grantRole });
+    if (res?.data) {
+      toast.success("Procurement access granted");
+      setGrantUserId("");
+      loadStats();
+    } else {
+      toast.error(res?.serverError || "Failed to grant access");
+    }
+  };
+
+  const handleRevokeProcurementAccess = async (userId: string) => {
+    if (!confirm("Are you sure you want to revoke procurement access for this user?")) return;
+    const res = await revokeProcurementAccess({ userId });
+    if (res?.data) {
+      toast.success("Procurement access revoked");
+      loadStats();
+    } else {
+      toast.error(res?.serverError || "Failed to revoke access");
+    }
+  };
+
   const confirmRollback = async () => {
     if (!rollbackTarget) return;
     const res = await rollbackToBackup({ filename: rollbackTarget.filename });
@@ -177,6 +219,13 @@ export default function SettingsPage() {
     { key: "tasks", label: "Tasks" },
     { key: "comments", label: "Comments" },
     { key: "members", label: "Members" },
+    { key: "vendors", label: "Vendors" },
+    { key: "procurements", label: "Procurements" },
+    { key: "budgets", label: "Budgets" },
+    { key: "budgetYears", label: "Budget Years" },
+    { key: "obligations", label: "Obligations" },
+    { key: "payments", label: "Payments" },
+    { key: "procMembers", label: "Proc. Access" },
   ];
 
   return (
@@ -198,6 +247,81 @@ export default function SettingsPage() {
               <p className="text-2xl font-bold">{loading ? "—" : (stats[s.key] ?? 0)}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Procurement Access */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <RiShieldLine className="size-5" />
+          Procurement Access
+        </h2>
+        
+        {/* Grant Access */}
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <div className="flex flex-wrap gap-3">
+            <Input
+              placeholder="User ID or email..."
+              value={grantUserId}
+              onChange={(e) => setGrantUserId(e.target.value)}
+              className="flex-1 min-w-[200px]"
+            />
+            <select
+              value={grantRole}
+              onChange={(e) => setGrantRole(e.target.value as "read" | "write")}
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="read">Read Only</option>
+              <option value="write">Read & Write</option>
+            </select>
+            <Button className="gap-2" onClick={handleGrantProcurementAccess}>
+              <RiAddLine className="size-4" />
+              Grant Access
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Grant users access to view (and optionally create) procurement data. Use the user ID or email.
+          </p>
+        </div>
+
+        {/* Members List */}
+        <div className="rounded-lg border">
+          {procMembers.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground text-sm">
+              No users have procurement access yet.
+            </div>
+          ) : (
+            <div className="divide-y">
+              {procMembers.map((m) => (
+                <div key={m.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">{m.userName}</p>
+                    <p className="text-xs text-muted-foreground">{m.userEmail}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        m.role === "write"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                      }`}
+                    >
+                      {m.role}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRevokeProcurementAccess(m.userId)}
+                      title="Revoke access"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <RiCloseCircleLine className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

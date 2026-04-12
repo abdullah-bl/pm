@@ -1,6 +1,17 @@
 import { db } from "@/lib/db";
 import type { CollectionMemberRole } from "@/lib/db";
 import { user, session, account, verification, project, task, comment, collectionMember, attachment } from "@/lib/db/schema";
+import {
+  vendor,
+  procurement,
+  procurementStatusLog,
+  budget,
+  budgetYear,
+  budgetTransfer,
+  obligation,
+  payment,
+  procurementMember,
+} from "@/lib/db/schema/procurement-schema";
 import { eq, count, not, like, or, and, desc, sql as sqlOp } from "drizzle-orm";
 
 export async function getUserCount() {
@@ -57,7 +68,7 @@ export async function getDashboardStats() {
 }
 
 export async function getDbStats() {
-  const [users, sessions, accounts, verifications, projects, tasks, comments, members] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments, members, vendors, procurements, budgets, budgetYears, obligations, payments, procMembers] = await Promise.all([
     getUserCount(),
     getSessionCount(),
     getAccountCount(),
@@ -66,13 +77,20 @@ export async function getDbStats() {
     getTaskCount(),
     getCommentCount(),
     getCollectionMemberCount(),
+    (async () => (await db.select({ count: count() }).from(vendor))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(procurement))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(budget))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(budgetYear))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(obligation))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(payment))[0].count)(),
+    (async () => (await db.select({ count: count() }).from(procurementMember))[0].count)(),
   ]);
 
-  return { users, sessions, accounts, verifications, projects, tasks, comments, members };
+  return { users, sessions, accounts, verifications, projects, tasks, comments, members, vendors, procurements, budgets, budgetYears, obligations, payments, procMembers };
 }
 
 export async function getAllTableData() {
-  const [users, sessions, accounts, verifications, projects, tasks, comments, members] = await Promise.all([
+  const [users, sessions, accounts, verifications, projects, tasks, comments, members, vendors, procurements, procurementLogs, budgets, budgetYears, budgetTransfers, obligations, payments, procMembers] = await Promise.all([
     db.select().from(user),
     db.select().from(session),
     db.select().from(account),
@@ -81,8 +99,17 @@ export async function getAllTableData() {
     db.select().from(task),
     db.select().from(comment),
     db.select().from(collectionMember),
+    db.select().from(vendor),
+    db.select().from(procurement),
+    db.select().from(procurementStatusLog),
+    db.select().from(budget),
+    db.select().from(budgetYear),
+    db.select().from(budgetTransfer),
+    db.select().from(obligation),
+    db.select().from(payment),
+    db.select().from(procurementMember),
   ]);
-  return { users, sessions, accounts, verifications, projects, tasks, comments, members };
+  return { users, sessions, accounts, verifications, projects, tasks, comments, members, vendors, procurements, procurementLogs, budgets, budgetYears, budgetTransfers, obligations, payments, procMembers };
 }
 
 export async function listUsersPaginated(opts: {
@@ -138,6 +165,16 @@ export async function clearAllTables() {
   await db.delete(session);
   await db.delete(account);
   await db.delete(user);
+  // Procurement tables (delete in correct order due to FKs)
+  await db.delete(payment);
+  await db.delete(obligation);
+  await db.delete(budgetTransfer);
+  await db.delete(budgetYear);
+  await db.delete(budget);
+  await db.delete(procurementStatusLog);
+  await db.delete(procurement);
+  await db.delete(vendor);
+  await db.delete(procurementMember);
 }
 
 export async function clearNonAdminTables() {
@@ -149,6 +186,16 @@ export async function clearNonAdminTables() {
   await db.delete(session);
   await db.delete(account);
   await db.delete(user).where(not(eq(user.role, "admin")));
+  // Procurement tables
+  await db.delete(payment);
+  await db.delete(obligation);
+  await db.delete(budgetTransfer);
+  await db.delete(budgetYear);
+  await db.delete(budget);
+  await db.delete(procurementStatusLog);
+  await db.delete(procurement);
+  await db.delete(vendor);
+  await db.delete(procurementMember);
 }
 
 export async function insertAllData(data: {
@@ -160,6 +207,15 @@ export async function insertAllData(data: {
   tasks?: any[];
   comments?: any[];
   members?: any[];
+  vendors?: any[];
+  procurements?: any[];
+  procurementLogs?: any[];
+  budgets?: any[];
+  budgetYears?: any[];
+  budgetTransfers?: any[];
+  obligations?: any[];
+  payments?: any[];
+  procMembers?: any[];
 }) {
   if (data.users?.length) {
     for (const u of data.users) {
@@ -199,6 +255,52 @@ export async function insertAllData(data: {
   if (data.verifications?.length) {
     for (const v of data.verifications) {
       try { await db.insert(verification).values(v); } catch {}
+    }
+  }
+  // Procurement tables (insert in correct order)
+  if (data.vendors?.length) {
+    for (const v of data.vendors) {
+      try { await db.insert(vendor).values(v); } catch {}
+    }
+  }
+  if (data.procurements?.length) {
+    for (const p of data.procurements) {
+      try { await db.insert(procurement).values(p); } catch {}
+    }
+  }
+  if (data.procurementLogs?.length) {
+    for (const l of data.procurementLogs) {
+      try { await db.insert(procurementStatusLog).values(l); } catch {}
+    }
+  }
+  if (data.budgets?.length) {
+    for (const b of data.budgets) {
+      try { await db.insert(budget).values(b); } catch {}
+    }
+  }
+  if (data.budgetYears?.length) {
+    for (const by of data.budgetYears) {
+      try { await db.insert(budgetYear).values(by); } catch {}
+    }
+  }
+  if (data.budgetTransfers?.length) {
+    for (const t of data.budgetTransfers) {
+      try { await db.insert(budgetTransfer).values(t); } catch {}
+    }
+  }
+  if (data.obligations?.length) {
+    for (const o of data.obligations) {
+      try { await db.insert(obligation).values(o); } catch {}
+    }
+  }
+  if (data.payments?.length) {
+    for (const p of data.payments) {
+      try { await db.insert(payment).values(p); } catch {}
+    }
+  }
+  if (data.procMembers?.length) {
+    for (const m of data.procMembers) {
+      try { await db.insert(procurementMember).values(m); } catch {}
     }
   }
 }

@@ -11,6 +11,8 @@ import {
   RiMenuLine,
   RiCloseLine,
   RiHomeLine,
+  RiFileList3Line,
+  RiMoneyDollarCircleLine,
 } from "@remixicon/react";
 import { useState } from "react";
 
@@ -34,6 +36,11 @@ export function UserShell({
 
   const navItems = [
     { href: "/", label: "My Collections", icon: RiHomeLine },
+  ];
+
+  const procurementNavItems = [
+    { href: "/procurement", label: "Procurement", icon: RiFileList3Line },
+    { href: "/procurement/budgets", label: "Budgets", icon: RiMoneyDollarCircleLine },
   ];
 
   const handleSignOut = () => {
@@ -66,6 +73,27 @@ export function UserShell({
             </Link>
           ))}
         </nav>
+        <div className="pt-4 mt-4 border-t">
+          <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
+          <nav className="space-y-1">
+            {procurementNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive(item.href)
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className="size-4" />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </div>
       <div className="px-3 space-y-3">
         <div className="px-3 text-sm">

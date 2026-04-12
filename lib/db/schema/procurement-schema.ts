@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import { sqliteTable, text, integer, index, real } from "drizzle-orm/sqlite-core";
+import { user } from "./auth-schema";
 
 // ─── Vendor ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,32 @@ export const payment = sqliteTable(
   ],
 );
 
+// ─── Procurement Member (Access Control) ─────────────────────────────────────
+
+export const procurementMember = sqliteTable(
+  "procurement_member",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["read", "write"] })
+      .default("read")
+      .notNull(),
+    grantedBy: text("granted_by")
+      .notNull()
+      .references(() => user.id),
+    grantedAt: integer("granted_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+  },
+  (table) => [
+    index("procurement_member_userId_idx").on(table.userId),
+  ],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const vendorRelations = relations(vendor, ({ many }) => ({
@@ -290,5 +317,17 @@ export const paymentRelations = relations(payment, ({ one }) => ({
   obligation: one(obligation, {
     fields: [payment.obligationId],
     references: [obligation.id],
+  }),
+}));
+
+export const procurementMemberRelations = relations(procurementMember, ({ one }) => ({
+  user: one(user, {
+    fields: [procurementMember.userId],
+    references: [user.id],
+  }),
+  grantedByUser: one(user, {
+    fields: [procurementMember.grantedBy],
+    references: [user.id],
+    relationName: "procurementGrantedBy",
   }),
 }));
