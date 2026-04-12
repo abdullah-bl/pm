@@ -13,6 +13,11 @@ import {
   RiMenuLine,
   RiCloseLine,
   RiFolderLine,
+  RiStore2Line,
+  RiFileList3Line,
+  RiMoneyDollarCircleLine,
+  RiBookmarkLine,
+  RiBankCardLine,
 } from "@remixicon/react";
 import { useState } from "react";
 
@@ -21,6 +26,14 @@ const navItems = [
   { href: "/dashboard/collections", label: "Collections", icon: RiFolderLine },
   { href: "/dashboard/users", label: "Users", icon: RiUserLine },
   { href: "/dashboard/settings", label: "Settings", icon: RiSettings3Line },
+];
+
+const procurementItems = [
+  { href: "/dashboard/procurement/vendors", label: "Vendors", icon: RiStore2Line },
+  { href: "/dashboard/procurement/procurements", label: "Procurements", icon: RiFileList3Line },
+  { href: "/dashboard/procurement/budgets", label: "Budgets", icon: RiMoneyDollarCircleLine },
+  { href: "/dashboard/procurement/obligations", label: "Obligations", icon: RiBookmarkLine },
+  { href: "/dashboard/procurement/payments", label: "Payments", icon: RiBankCardLine },
 ];
 
 export function AdminSidebar() {
@@ -47,6 +60,25 @@ export function AdminSidebar() {
         </div>
         <nav className="space-y-1">
           {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive(item.href)
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <item.icon className="size-4" />
+              {item.label}
+            </Link>
+          ))}
+          <div className="pt-4 pb-2 px-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
+          </div>
+          {procurementItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
