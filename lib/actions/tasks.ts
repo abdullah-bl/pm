@@ -26,9 +26,13 @@ async function getCurrentUserId() {
 }
 
 export const listProjects = adminOnlyAction
-  .schema(z.object({}))
-  .action(async () => {
-    return getProjects();
+  .schema(z.object({
+    page: z.number().default(1).optional(),
+    limit: z.number().default(20).optional(),
+    search: z.string().optional(),
+  }))
+  .action(async ({ parsedInput }) => {
+    return getProjects(parsedInput);
   });
 
 export const newProject = adminOnlyAction

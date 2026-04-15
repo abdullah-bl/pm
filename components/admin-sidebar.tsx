@@ -21,22 +21,22 @@ import {
 } from "@remixicon/react";
 import { useState } from "react";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: RiDashboardLine },
-  { href: "/dashboard/collections", label: "Collections", icon: RiFolderLine },
-  { href: "/dashboard/users", label: "Users", icon: RiUserLine },
-  { href: "/dashboard/settings", label: "Settings", icon: RiSettings3Line },
+const allNavItems = [
+  { href: "/dashboard", label: "Dashboard", icon: RiDashboardLine, roles: ["admin"] },
+  { href: "/dashboard/collections", label: "Collections", icon: RiFolderLine, roles: ["admin"] },
+  { href: "/dashboard/users", label: "Users", icon: RiUserLine, roles: ["admin"] },
+  { href: "/dashboard/settings", label: "Settings", icon: RiSettings3Line, roles: ["admin"] },
 ];
 
-const procurementItems = [
-  { href: "/dashboard/procurement/vendors", label: "Vendors", icon: RiStore2Line },
-  { href: "/dashboard/procurement/procurements", label: "Procurements", icon: RiFileList3Line },
-  { href: "/dashboard/procurement/budgets", label: "Budgets", icon: RiMoneyDollarCircleLine },
-  { href: "/dashboard/procurement/obligations", label: "Obligations", icon: RiBookmarkLine },
-  { href: "/dashboard/procurement/payments", label: "Payments", icon: RiBankCardLine },
+const allProcurementItems = [
+  { href: "/dashboard/procurement/vendors", label: "Vendors", icon: RiStore2Line, roles: ["admin", "procurement_manager"] },
+  { href: "/dashboard/procurement/procurements", label: "Procurements", icon: RiFileList3Line, roles: ["admin", "procurement_manager", "viewer"] },
+  { href: "/dashboard/procurement/budgets", label: "Budgets", icon: RiMoneyDollarCircleLine, roles: ["admin", "budget_manager", "viewer"] },
+  { href: "/dashboard/procurement/obligations", label: "Obligations", icon: RiBookmarkLine, roles: ["admin", "procurement_manager", "budget_manager"] },
+  { href: "/dashboard/procurement/payments", label: "Payments", icon: RiBankCardLine, roles: ["admin", "budget_manager", "procurement_manager"] },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ userRole }: { userRole: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,8 +48,12 @@ export function AdminSidebar() {
 
   const handleSignOut = () => {
     signOut();
-    router.refresh()
+    router.refresh();
   };
+
+  // Filter nav items based on role
+  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
+  const procurementItems = allProcurementItems.filter((item) => item.roles.includes(userRole));
 
   const sidebar = (
     <div className="flex h-full flex-col justify-between py-4">
@@ -75,25 +79,29 @@ export function AdminSidebar() {
               {item.label}
             </Link>
           ))}
-          <div className="pt-4 pb-2 px-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
-          </div>
-          {procurementItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive(item.href)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          ))}
+          {procurementItems.length > 0 && (
+            <>
+              <div className="pt-4 pb-2 px-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
+              </div>
+              {procurementItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
       </div>
       <div className="px-3">
@@ -111,7 +119,6 @@ export function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center gap-2 border-b bg-background px-4 py-3">
         <Button
           variant="ghost"
@@ -127,7 +134,6 @@ export function AdminSidebar() {
         <span className="font-semibold">PM Admin</span>
       </div>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50"
@@ -135,7 +141,6 @@ export function AdminSidebar() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed md:static inset-y-0 left-0 z-50 w-56 border-r bg-background transition-transform md:translate-x-0",

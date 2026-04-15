@@ -75,7 +75,8 @@ export default function VendorDetailPage() {
     ]);
     if (vendorRes?.data) setVendor(vendorRes.data as unknown as Vendor);
     if (procRes?.data) {
-      const linked = (procRes.data as any[]).filter((p: any) => p.vendorId === vendorId);
+      const procs = (procRes.data as any).procurements ?? procRes.data;
+      const linked = Array.isArray(procs) ? procs.filter((p: any) => p.vendorId === vendorId) : [];
       setProcurements(linked);
     }
     setLoading(false);

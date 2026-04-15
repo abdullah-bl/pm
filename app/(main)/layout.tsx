@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { UserShell } from "@/components/user-shell";
 
+const STAFF_ROLES = ["admin", "viewer", "procurement_manager", "budget_manager"];
+
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -12,8 +14,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     return redirect("/sign-in");
   }
 
-  // Redirect admin users to the admin dashboard
-  if(session.user.role === "admin") {
+  // Redirect staff users to the admin dashboard
+  if (STAFF_ROLES.includes(session.user.role ?? "user")) {
     return redirect("/dashboard");
   }
 

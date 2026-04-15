@@ -336,22 +336,51 @@ export async function unbanUserData(id: string) {
 
 // --- Project queries ---
 
-export async function getProjects() {
-  return db
-    .select({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      createdBy: project.createdBy,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      taskCount: sqlOp<number>`count(${task.id})`,
-    })
-    .from(project)
-    .leftJoin(task, eq(project.id, task.projectId))
-    .groupBy(project.id)
-    .orderBy(desc(project.createdAt));
+export async function getProjects(opts?: { page?: number; limit?: number; search?: string }) {
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 20;
+  const offset = (page - 1) * limit;
+  const search = opts?.search;
+
+  const conditions = [];
+  if (search) {
+    conditions.push(
+      or(
+        like(project.name, `%${search}%`),
+        like(project.description, `%${search}%`)
+      )!
+    );
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [projects, totalResult] = await Promise.all([
+    db
+      .select({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        status: project.status,
+        createdBy: project.createdBy,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        taskCount: sqlOp<number>`count(${task.id})`,
+      })
+      .from(project)
+      .leftJoin(task, eq(project.id, task.projectId))
+      .where(where)
+      .groupBy(project.id)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(project.createdAt)),
+    db.select({ count: count() }).from(project).where(where),
+  ]);
+
+  return {
+    projects,
+    total: totalResult[0].count,
+    page,
+    totalPages: Math.ceil(totalResult[0].count / limit),
+  };
 }
 
 export async function getProjectById(id: string) {

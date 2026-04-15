@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth/auth";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin-sidebar";
+
+const STAFF_ROLES = ["admin", "viewer", "procurement_manager", "budget_manager"];
 
 export default async function AdminLayout({
   children,
@@ -12,13 +14,17 @@ export default async function AdminLayout({
     headers: await headers(),
   });
 
-  if (!session || session.user.role !== "admin") {
+  if (!session) {
+    redirect("/sign-in");
+  }
+
+  if (!STAFF_ROLES.includes(session.user.role ?? "user")) {
     notFound();
   }
 
   return (
     <div className="flex min-h-svh">
-      <AdminSidebar />
+      <AdminSidebar userRole={session.user.role ?? "user"} />
       <main className="flex-1 overflow-auto pt-14 md:pt-0">
         <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
       </main>

@@ -157,6 +157,15 @@ export const restoreDatabase = adminOnlyAction
         tasks: z.array(z.any()).optional(),
         comments: z.array(z.any()).optional(),
         members: z.array(z.any()).optional(),
+        vendors: z.array(z.any()).optional(),
+        procurements: z.array(z.any()).optional(),
+        procurementLogs: z.array(z.any()).optional(),
+        budgets: z.array(z.any()).optional(),
+        budgetYears: z.array(z.any()).optional(),
+        budgetTransfers: z.array(z.any()).optional(),
+        obligations: z.array(z.any()).optional(),
+        payments: z.array(z.any()).optional(),
+        procMembers: z.array(z.any()).optional(),
       }),
     })
   )
@@ -249,6 +258,15 @@ export const validateBackupFile = userAction
         tasks: data.tasks?.length || 0,
         comments: data.comments?.length || 0,
         members: data.members?.length || 0,
+        vendors: data.vendors?.length || 0,
+        procurements: data.procurements?.length || 0,
+        procurementLogs: data.procurementLogs?.length || 0,
+        budgets: data.budgets?.length || 0,
+        budgetYears: data.budgetYears?.length || 0,
+        budgetTransfers: data.budgetTransfers?.length || 0,
+        obligations: data.obligations?.length || 0,
+        payments: data.payments?.length || 0,
+        procMembers: data.procMembers?.length || 0,
       };
 
       // Basic structure validation

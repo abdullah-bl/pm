@@ -20,10 +20,12 @@ export function UserShell({
   children,
   userName,
   userEmail,
+  hasProcurementAccess = false,
 }: {
   children: React.ReactNode;
   userName: string;
   userEmail: string;
+  hasProcurementAccess?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -45,7 +47,7 @@ export function UserShell({
 
   const handleSignOut = () => {
     signOut();
-    router.refresh()
+    router.refresh();
   };
 
   const sidebar = (
@@ -73,27 +75,29 @@ export function UserShell({
             </Link>
           ))}
         </nav>
-        <div className="pt-4 mt-4 border-t">
-          <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
-          <nav className="space-y-1">
-            {procurementNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+        {hasProcurementAccess && (
+          <div className="pt-4 mt-4 border-t">
+            <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</p>
+            <nav className="space-y-1">
+              {procurementNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
       </div>
       <div className="px-3 space-y-3">
         <div className="px-3 text-sm">
@@ -114,7 +118,6 @@ export function UserShell({
 
   return (
     <div className="flex min-h-svh">
-      {/* Mobile toggle */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center gap-2 border-b bg-background px-4 py-3">
         <Button
           variant="ghost"
@@ -130,7 +133,6 @@ export function UserShell({
         <span className="font-semibold">PM</span>
       </div>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50"
@@ -138,7 +140,6 @@ export function UserShell({
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed md:static inset-y-0 left-0 z-50 w-56 border-r bg-background transition-transform md:translate-x-0",

@@ -80,7 +80,7 @@ export default function TransfersPage() {
 
   const load = useCallback(async () => {
     const res = await listAllTransfers({});
-    if (res?.data) setTransfers(res.data as unknown as Transfer[]);
+    if (res?.data) setTransfers((res.data as any).transfers ?? res.data as unknown as Transfer[]);
     setLoading(false);
   }, []);
 

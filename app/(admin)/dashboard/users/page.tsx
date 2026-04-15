@@ -27,6 +27,7 @@ import {
   unbanUser,
 } from "@/lib/actions/users";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth/auth-client";
 import {
   RiAddLine,
   RiSearchLine,
@@ -35,7 +36,24 @@ import {
   RiForbidLine,
   RiCheckLine,
   RiCloseLine,
+  RiShieldLine,
 } from "@remixicon/react";
+
+const roleColors: Record<string, string> = {
+  admin: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+  viewer: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  procurement_manager: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+  budget_manager: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
+  user: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+};
+
+const ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "procurement_manager", label: "Procurement Manager" },
+  { value: "budget_manager", label: "Budget Manager" },
+  { value: "viewer", label: "Viewer" },
+  { value: "user", label: "User" },
+];
 
 type User = {
   id: string;
@@ -61,6 +79,8 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [roleTarget, setRoleTarget] = useState<User | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("user");
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -108,8 +128,9 @@ export default function UsersPage() {
           className="rounded-md border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
+          {ROLES.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
         </select>
       </div>
 
@@ -147,9 +168,9 @@ export default function UsersPage() {
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.username || "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                      {u.role || "user"}
-                    </Badge>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${roleColors[u.role ?? "user"] ?? "bg-slate-100 text-slate-700"}`}>
+                      {(ROLES.find(r => r.value === (u.role || "user")))?.label ?? (u.role || "User")}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {u.banned ? (
@@ -165,6 +186,17 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setRoleTarget(u);
+                          setSelectedRole(u.role || "user");
+                        }}
+                        title="Set Role"
+                      >
+                        <RiShieldLine className="size-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -270,7 +302,7 @@ export default function UsersPage() {
               name: editUser.name,
               email: editUser.email,
               username: editUser.username || "",
-              role: (editUser.role as "admin" | "user") || "user",
+              role: (editUser.role as "admin" | "viewer" | "procurement_manager" | "budget_manager" | "user") || "user",
             }}
             onSubmit={async (data) => {
               const res = await updateUser({ id: editUser.id, ...data });
@@ -358,6 +390,51 @@ export default function UsersPage() {
           </div>
         </Modal>
       )}
+
+      {/* Set Role Modal */}
+      {roleTarget && (
+        <Modal title="Set User Role" onClose={() => setRoleTarget(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Set role for <strong>{roleTarget.name}</strong> ({roleTarget.email})
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Role</label>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRoleTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    await authClient.admin.setRole({
+                      userId: roleTarget.id,
+                      role: selectedRole as "admin" | "viewer" | "procurement_manager" | "budget_manager" | "user",
+                    });
+                    toast.success("Role updated");
+                    setRoleTarget(null);
+                    loadUsers();
+                  } catch {
+                    toast.error("Failed to update role");
+                  }
+                }}
+              >
+                Set Role
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -393,8 +470,8 @@ function UserForm({
   submitLabel,
   noPassword,
 }: {
-  initial?: { name: string; email: string; username: string; role: "admin" | "user" };
-  onSubmit: (data: { name: string; email: string; username: string; password: string; role: "admin" | "user" }) => Promise<void>;
+  initial?: { name: string; email: string; username: string; role: "admin" | "viewer" | "procurement_manager" | "budget_manager" | "user" };
+  onSubmit: (data: { name: string; email: string; username: string; password: string; role: "admin" | "viewer" | "procurement_manager" | "budget_manager" | "user" }) => Promise<void>;
   submitLabel: string;
   noPassword?: boolean;
 }) {
@@ -410,7 +487,7 @@ function UserForm({
           email: fd.get("email") as string,
           username: fd.get("username") as string,
           password: fd.get("password") as string || "",
-          role: fd.get("role") as "admin" | "user",
+          role: fd.get("role") as "admin" | "viewer" | "procurement_manager" | "budget_manager" | "user",
         });
         setLoading(false);
       }}
@@ -436,14 +513,17 @@ function UserForm({
       )}
       <Field>
         <FieldLabel>Role</FieldLabel>
-        <select
-          name="role"
-          defaultValue={initial?.role || "user"}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-        >
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
+            <select
+              name="role"
+              className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm"
+              defaultValue={initial?.role || "user"}
+            >
+              <option value="admin">Admin</option>
+              <option value="procurement_manager">Procurement Manager</option>
+              <option value="budget_manager">Budget Manager</option>
+              <option value="viewer">Viewer</option>
+              <option value="user">User</option>
+            </select>
       </Field>
       <div className="flex justify-end">
         <Button type="submit" disabled={loading}>

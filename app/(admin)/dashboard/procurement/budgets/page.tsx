@@ -19,6 +19,8 @@ import {
   getBudgetWithYears,
 } from "@/lib/actions/procurement";
 import { formatCurrency, formatDate } from "@/lib/formatters";
+import { OverviewCards } from "@/components/overview-cards";
+import { PageHeader } from "@/components/page-header";
 import { toast } from "sonner";
 import {
   RiAddLine,
@@ -26,6 +28,9 @@ import {
   RiArrowDownSLine,
   RiArrowUpSLine,
   RiMoneyDollarCircleLine,
+  RiWalletLine,
+  RiPieChartLine,
+  RiBankLine,
 } from "@remixicon/react";
 
 type Budget = {
@@ -81,18 +86,30 @@ export default function BudgetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Budgets</h1>
-          <p className="text-muted-foreground">Manage budgets and budget years.</p>
-        </div>
+      <PageHeader title="Budgets" description="Manage budgets and budget years.">
         <div className="flex gap-2">
           <Button className="gap-2" onClick={() => setShowCreateBudget(true)}>
             <RiAddLine className="size-4" />
             New Budget
           </Button>
         </div>
-      </div>
+      </PageHeader>
+
+      {/* Overview Cards */}
+      {budgets.length > 0 && (() => {
+        const allYears = budgets.flatMap(b => b.years);
+        const totalAllocated = allYears.reduce((s, y) => s + y.cash + y.credit, 0);
+        const totalConsumed = allYears.reduce((s, y) => s + y.consumedCash + y.consumedCredit, 0);
+        const totalRemaining = totalAllocated - totalConsumed;
+        return (
+          <OverviewCards cards={[
+            { label: "Total Budgets", value: budgets.length, icon: <RiWalletLine className="size-4 text-muted-foreground" /> },
+            { label: "Total Allocated", value: formatCurrency(totalAllocated), icon: <RiBankLine className="size-4 text-muted-foreground" /> },
+            { label: "Total Consumed", value: formatCurrency(totalConsumed), icon: <RiPieChartLine className="size-4 text-muted-foreground" /> },
+            { label: "Total Remaining", value: formatCurrency(totalRemaining), icon: <RiMoneyDollarCircleLine className="size-4 text-muted-foreground" /> },
+          ]} />
+        );
+      })()}
 
       {loading ? (
         <div className="space-y-4">

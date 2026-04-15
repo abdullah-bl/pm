@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function AdminProcurementsRedirectPage() {
+export default function AdminProcurementRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {

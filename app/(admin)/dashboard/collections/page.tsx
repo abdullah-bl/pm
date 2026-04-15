@@ -40,7 +40,7 @@ export default function ProjectsPage() {
 
   const load = async () => {
     const res = await listProjects({});
-    if (res?.data) setProjects(res.data as any);
+    if (res?.data) setProjects((res.data as any).projects ?? res.data as any);
     setLoading(false);
   };
 

@@ -36,7 +36,7 @@ export const createUser = adminOnlyAction
       name: z.string().min(1),
       username: z.string().min(1),
       password: z.string().min(8),
-      role: z.enum(["admin", "user"]),
+      role: z.enum(["admin", "viewer", "procurement_manager", "budget_manager", "user"]),
     })
   )
   .action(async ({ parsedInput }) => {
@@ -77,7 +77,7 @@ export const updateUser = adminOnlyAction
       name: z.string().min(1),
       email: z.string().email(),
       username: z.string().min(1),
-      role: z.enum(["admin", "user"]),
+      role: z.enum(["admin", "viewer", "procurement_manager", "budget_manager", "user"]),
     })
   )
   .action(async ({ parsedInput }) => {

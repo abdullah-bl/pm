@@ -54,7 +54,7 @@ export default function VendorsPage() {
 
   const load = useCallback(async () => {
     const res = await listVendors({});
-    if (res?.data) setVendors(res.data as unknown as Vendor[]);
+    if (res?.data) setVendors((res.data as any).vendors ?? res.data as unknown as Vendor[]);
     setLoading(false);
   }, []);
 

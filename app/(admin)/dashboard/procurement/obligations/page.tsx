@@ -20,11 +20,16 @@ import {
   listBudgetYears,
 } from "@/lib/actions/procurement";
 import { formatCurrency } from "@/lib/formatters";
+import { OverviewCards } from "@/components/overview-cards";
+import { PageHeader } from "@/components/page-header";
 import { toast } from "sonner";
 import {
   RiAddLine,
   RiCloseLine,
   RiBookmarkLine,
+  RiMoneyDollarCircleLine,
+  RiCheckDoubleLine,
+  RiTimeLine,
 } from "@remixicon/react";
 
 type Obligation = {
@@ -79,12 +84,12 @@ export default function ObligationsPage() {
     ]);
 
     if (obsRes?.data) {
-      setObligations(obsRes.data as unknown as Obligation[]);
+      setObligations((obsRes.data as any).obligations ?? obsRes.data as unknown as Obligation[]);
     }
     if (procsRes?.data) {
       setProcurements(
-        (procsRes.data as unknown as Procurement[]).filter(
-          (p) => p.status === "contract_active"
+        ((procsRes.data as any).procurements ?? procsRes.data as unknown as Procurement[]).filter(
+          (p: any) => p.status === "contract_active"
         )
       );
     }
@@ -118,18 +123,20 @@ export default function ObligationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Obligations</h1>
-          <p className="text-muted-foreground">
-            Manage procurement obligations.
-          </p>
-        </div>
+      <PageHeader title="Obligations" description="Manage procurement obligations.">
         <Button className="gap-2" onClick={() => setShowCreate(true)}>
           <RiAddLine className="size-4" />
           New Obligation
         </Button>
-      </div>
+      </PageHeader>
+
+      {/* Overview Cards */}
+      <OverviewCards cards={[
+        { label: "Total Obligations", value: obligations.length, icon: <RiBookmarkLine className="size-4 text-muted-foreground" /> },
+        { label: "Active Amount", value: formatCurrency(obligations.filter(o => o.status === "active").reduce((s, o) => s + o.amount, 0)), icon: <RiMoneyDollarCircleLine className="size-4 text-muted-foreground" /> },
+        { label: "Paid Amount", value: formatCurrency(obligations.reduce((s, o) => s + (o.paidAmount ?? 0), 0)), icon: <RiCheckDoubleLine className="size-4 text-muted-foreground" /> },
+        { label: "Remaining Amount", value: formatCurrency(obligations.reduce((s, o) => s + (o.remainingAmount ?? o.amount), 0)), icon: <RiTimeLine className="size-4 text-muted-foreground" /> },
+      ]} />
 
       {/* Filters */}
       <div className="flex gap-3">

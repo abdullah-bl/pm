@@ -54,6 +54,8 @@ export const procurement = sqliteTable(
     cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
     suspendedAt: integer("suspended_at", { mode: "timestamp_ms" }),
     cancellationReason: text("cancellation_reason"),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    deletedBy: text("deleted_by").references(() => user.id),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),
@@ -65,6 +67,7 @@ export const procurement = sqliteTable(
   (table) => [
     index("idx_procurement_status").on(table.status),
     index("idx_procurement_vendor").on(table.vendorId),
+    index("idx_procurement_deleted_at").on(table.deletedAt),
   ],
 );
 
@@ -89,6 +92,37 @@ export const procurementStatusLog = sqliteTable(
   },
   (table) => [
     index("idx_procurement_status_log_proc").on(table.procurementId),
+  ],
+);
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+
+export const auditLog = sqliteTable(
+  "audit_log",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    entityType: text("entity_type", { enum: ["procurement", "vendor", "budget", "obligation", "payment"] }).notNull(),
+    entityId: text("entity_id").notNull(),
+    action: text("action", { enum: ["create", "read", "update", "delete", "restore", "view"] }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    userName: text("user_name").notNull(),
+    userRole: text("user_role").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    timestamp: integer("timestamp", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    changes: text("changes"), // JSON string of before/after or relevant data
+    reason: text("reason"),
+  },
+  (table) => [
+    index("idx_audit_entity").on(table.entityType, table.entityId),
+    index("idx_audit_user").on(table.userId),
+    index("idx_audit_timestamp").on(table.timestamp),
   ],
 );
 
@@ -329,5 +363,12 @@ export const procurementMemberRelations = relations(procurementMember, ({ one })
     fields: [procurementMember.grantedBy],
     references: [user.id],
     relationName: "procurementGrantedBy",
+  }),
+}));
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  user: one(user, {
+    fields: [auditLog.userId],
+    references: [user.id],
   }),
 }));

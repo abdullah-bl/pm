@@ -46,8 +46,9 @@ export default function AdminDashboard() {
         getOverduePayments({}),
       ]);
       if (procRes?.data) {
+        const procs = (procRes.data as any).procurements ?? procRes.data;
         const activeStatuses = ["draft", "published", "offers_open", "evaluation", "awarded", "contract_active"];
-        const active = (procRes.data as any[]).filter((p: any) => activeStatuses.includes(p.status));
+        const active = (procs as any[]).filter((p: any) => activeStatuses.includes(p.status));
         setProcurementStats((prev) => ({
           ...prev!,
           activeProcurements: active.length,
@@ -97,7 +98,7 @@ export default function AdminDashboard() {
       value: procurementStats?.activeProcurements ?? "—",
       icon: RiFileList3Line,
       description: "In progress",
-      href: "/dashboard/procurement/procurements",
+      href: "/dashboard/procurement/overview",
     },
     {
       label: "Pending Payments",
@@ -177,10 +178,10 @@ export default function AdminDashboard() {
               View All Users
             </Button>
           </Link>
-          <Link href="/dashboard/procurement/procurements">
+          <Link href="/dashboard/procurement/overview">
             <Button variant="outline" size="sm" className="gap-2">
               <RiFileList3Line className="size-4" />
-              Procurements
+              Procurement Overview
             </Button>
           </Link>
           <Link href="/dashboard/procurement/budgets">

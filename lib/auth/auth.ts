@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db"; // your drizzle instance
 import { username } from "better-auth/plugins"
 import { admin } from "better-auth/plugins"
+import { ac, adminRole, viewerRole, procurementManagerRole, budgetManagerRole, userRole } from "./permissions"
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
 import { sendEmail } from "../email";   
@@ -18,7 +19,10 @@ export const auth = betterAuth({
         enabled: false,
     },
     plugins: [
-        admin(),
+        admin({
+          ac,
+          roles: { admin: adminRole, viewer: viewerRole, procurement_manager: procurementManagerRole, budget_manager: budgetManagerRole, user: userRole }
+        }),
         username(),
         nextCookies(),
         magicLink({

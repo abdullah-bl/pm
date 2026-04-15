@@ -20,6 +20,8 @@ import {
   listAllObligations,
 } from "@/lib/actions/procurement";
 import { formatCurrency, formatDate } from "@/lib/formatters";
+import { OverviewCards } from "@/components/overview-cards";
+import { PageHeader } from "@/components/page-header";
 import { toast } from "sonner";
 import {
   RiAddLine,
@@ -29,6 +31,9 @@ import {
   RiCloseCircleLine,
   RiMoneyDollarCircleLine,
   RiBankLine,
+  RiTimeLine,
+  RiCheckDoubleLine,
+  RiErrorWarningLine,
 } from "@remixicon/react";
 
 type Payment = {
@@ -81,7 +86,7 @@ export default function PaymentsPage() {
 
   const load = useCallback(async () => {
     const res = await listAllPayments({});
-    if (res?.data) setPayments(res.data as unknown as Payment[]);
+    if (res?.data) setPayments((res.data as any).payments ?? res.data as unknown as Payment[]);
     setLoading(false);
   }, []);
 
@@ -93,6 +98,12 @@ export default function PaymentsPage() {
     p.dueDate &&
     p.dueDate < today &&
     (p.status === "pending" || p.status === "approved");
+
+  // Overview stats
+  const totalPayments = payments.length;
+  const pendingAmount = payments.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0);
+  const paidAmount = payments.filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0);
+  const overdueCount = payments.filter(p => isOverdue(p)).length;
 
   const filtered = payments.filter((p) => {
     const matchSearch =
@@ -107,18 +118,20 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
-          <p className="text-muted-foreground">
-            Manage payment schedules and approvals.
-          </p>
-        </div>
+      <PageHeader title="Payments" description="Manage payment schedules and approvals.">
         <Button className="gap-2" onClick={() => setShowCreate(true)}>
           <RiAddLine className="size-4" />
           New Payment
         </Button>
-      </div>
+      </PageHeader>
+
+      {/* Overview Cards */}
+      <OverviewCards cards={[
+        { label: "Total Payments", value: totalPayments, icon: <RiMoneyDollarCircleLine className="size-4 text-muted-foreground" /> },
+        { label: "Pending Amount", value: formatCurrency(pendingAmount), icon: <RiTimeLine className="size-4 text-muted-foreground" /> },
+        { label: "Paid Amount", value: formatCurrency(paidAmount), icon: <RiCheckDoubleLine className="size-4 text-muted-foreground" /> },
+        { label: "Overdue", value: overdueCount, description: overdueCount > 0 ? "Requires attention" : undefined, icon: <RiErrorWarningLine className="size-4 text-muted-foreground" /> },
+      ]} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -397,9 +410,9 @@ function CreatePaymentModal({
     async function load() {
       const res = await listAllObligations({});
       if (res?.data) {
-        // Only show active obligations
+        const obs = (res.data as any).obligations ?? res.data;
         setObligations(
-          (res.data as unknown as Obligation[]).filter((o) => o.status === "active")
+          (obs as unknown as Obligation[]).filter((o) => o.status === "active")
         );
       }
       setLoadingData(false);
